@@ -26,6 +26,9 @@ class Database():
     # Deletes the specified table
     """
     def drop_table(self, name):
+        for table in self.tables:
+            if table.name == name:
+                del table
         pass
 
     """
