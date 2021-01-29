@@ -20,6 +20,7 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
+        self.tables.append(table)
         return table
 
     """
@@ -29,10 +30,11 @@ class Database():
         for table in self.tables:
             if table.name == name:
                 del table
-        pass
 
     """
     # Returns table with the passed name
     """
     def get_table(self, name):
-        pass
+        for table in self.tables:
+            if table.name == name:
+                return table
