@@ -10,7 +10,7 @@
 
 
 
-# Element(8 bytes)                                                              # 8 "bytes" in one "PhysicalPage"
+# Element(byte, byte, byte, byte, byte, byte, byte, '\x00')                     # 8 "bytes" in one "element" Note that only 7 of the bytes can be written to!
 # PhysicalPage(Element, Element, Element, ...)                                  # 512 "element"s in one "PhysicalPage"
 # BasePage(PhysicalPage, PhysicalPage, PhysicalPage, ...)                       # 9 (4 are meta filled, 5 are data filled) "PhysicalPage"s in one "BasePage"
 # PageRange(BasePage, BasePage, BasePage, ...)                                  # 16 "BasePage"s in one "PageRange"
