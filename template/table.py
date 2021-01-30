@@ -1,6 +1,7 @@
 from template.page import *
 from template.index import Index
 from time import time
+from math import floor
 
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
@@ -12,17 +13,40 @@ SCHEMA_ENCODING_COLUMN = 3
 class PageRange:
     def __init__(self):
         # creates 1 base page and 1 tail page to start
+            # should be an array so we can add more base and tail pages as needed
+        self.basePages = []
+        self.tailPages = []
+
+        basePages.append(Page())
+        tailPages.append(Page())
+        
         # holds range of RIDS
-        # boolean: full or not
-        # current page
+        containsRIDS = (0, 0) #tuple of RID range
+
+
+        
+        self.rangeFull = False          # boolean: full or not
+        self.currentPage = 0            # current page
+        
             # page should contain current record
             # before inserting check if page is full
          
-        # int: holds current avaliable index
+        # int: holds current avaliable index (for which page to use)
+        self.currentIndex
 
         # insert operation into base page, if base page full, create new base page
         # update operation into tail page, if tail page full, create new tail page
         pass
+
+    def insert(self, baseRID, recordObj):
+        # one record is one row
+        # inserting a record means copying each of its data elements to the correct physical page associated with that column
+        pass
+
+    def update(self, tailRID):
+
+        pass
+
 
 
 
@@ -62,6 +86,7 @@ class Table:
         self.index = Index(self)
 
         initialPageRange = PageRange()
+        pageRanges = []
         #add page range to page directory
 
         #page_directory = {"PageRanges": [pr1, pr2]}
@@ -84,6 +109,12 @@ class Table:
         key = record[0]
         self.keyToRID[key] = self.baseRID
         # do math on RID to get pageRange from page_directory
+        # - whichPageRange = floor(RID / PageRangeSize)
+        # - OffsetInPageRange = RID % PageRangeSize
+
+        selectedRange  = floor(self.baseRID, 16)                     # should change 16 to a global
+        # TODO: determine PageRangeSize global
+        
         # then call pageRange.insert(record)
         
         

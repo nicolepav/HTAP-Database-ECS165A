@@ -1,24 +1,28 @@
 # Global Setting for the Database
 # PageSize, StartRID, etc..
 
-PhysicalPageBytes = 4096                             # Physical Pages Size
-Data_Bytes = 8                                        # Each data within a record stored as 8 bytes
-RecordsPerPage = PhysicalPageBytes / Data_Bytes  
-BasePagesPerPageRange = 16                                        # Number of
+# PhysicalPageBytes = 4096                              # Physical Pages Size
+# Data_Bytes = 8                                        # Each data within a record stored as 8 bytes
+# RecordsPerPhysicalPage = PhysicalPageBytes / Data_Bytes       # records per physical page
+# BasePagesPerPageRange = 16                            # Number of
 
 
 
 
 
-# Data(8 bytes)                                             8 "bytes" in one "PhysicalPage"
-# PhysicalPage(Data, Data, Data, ...)                       500 "data"s in one "PhysicalPage"
-# BasePage(PhysicalPage, PhysicalPage, PhysicalPage, ...)   9 (4 are meta filled, 5 are data filled) "PhysicalPage"s in one "BasePage"
-# PageRange(BasePage, BasePage, BasePage, ...)              16 "BasePage"s in one "PageRange"
+# Element(8 bytes)                                                              # 8 "bytes" in one "PhysicalPage"
+# PhysicalPage(Element, Element, Element, ...)                                  # 512 "element"s in one "PhysicalPage"
+# BasePage(PhysicalPage, PhysicalPage, PhysicalPage, ...)                       # 9 (4 are meta filled, 5 are data filled) "PhysicalPage"s in one "BasePage"
+# PageRange(BasePage, BasePage, BasePage, ...)                                  # 16 "BasePage"s in one "PageRange"
 
-# BytesPerData = 8
-# DatasPerPhysicalPage = 500
-# MetaPhysicalPages = 4
-# DataPhysicalPages = 4
-# PhysicalPagesPerBasePage = 9 (4 are meta filled, 5 are data filled)
-# BasePagesPerPageRange = 16
+BytesPerElement = 8
+PhysicalPageBytes = 4096
+ElementsPerPhysicalPage = PhysicalPageBytes /  BytesPerElement                                                # aka records per Physical Page
+# MetaColumnsPhysicalPages = 4
+# DataColumnsPerPhysicalPage = 5
+# PhysicalPagesPerPage = MetaColumnsPhysicalPages + DataColumnsPerPhysicalPage        # 9 (4 are meta filled, 5 are data filled)
+PagesPerPageRange = 16
+BytesPerPhysicalPage = ElementsPerPhysicalPage * BytesPerElement              # 4096 "bytes"
 
+# ElementsPerPage = PhysicalPagesPerPage * ElementsPerPhysicalPage
+# ElementsPerPageRange = PagesPerPageRange * ElementsPerPage
