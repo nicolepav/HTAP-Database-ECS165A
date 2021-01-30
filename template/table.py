@@ -8,56 +8,65 @@ RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
 SCHEMA_ENCODING_COLUMN = 3
 
-
+class Record:
+    def __init__(self, rid, key, columns):
+        self.rid = rid
+        self.key = key
+        self.columns = columns
 
 class PageRange:
     def __init__(self):
         # creates 1 base page and 1 tail page to start
             # should be an array so we can add more base and tail pages as needed
         self.basePages = []
-        self.tailPages = []
+        self.currentBasePage = 0
 
-        basePages.append(Page())
-        tailPages.append(Page())
-        
+        self.tailPages = []
+        self.currentTailPage = 0
+
         # holds range of RIDS
         containsRIDS = (0, 0) #tuple of RID range
 
 
         
         self.rangeFull = False          # boolean: full or not
-        self.currentPage = 0            # current page
+                   # current page
         
-            # page should contain current record
-            # before inserting check if page is full
-         
-        # int: holds current avaliable index (for which page to use)
-        self.currentIndex
-
         # insert operation into base page, if base page full, create new base page
         # update operation into tail page, if tail page full, create new tail page
         pass
 
-    def insert(self, baseRID, recordObj):
-        # one record is one row
-        # inserting a record means copying each of its data elements to the correct physical page associated with that column
-        pass
+    def insert(self, baseRID, record):
 
-    def update(self, tailRID):
-
-        pass
-
-
-
-
+        if not self.basePages:
+            self.basePages.append(Page(record))
+            return True
         
 
-class Record:
+        currentPage = self.basePages[self.currentBasePage]
+        
+        # before inserting check if page is full
+        if currentPage.isFull():
+            if len(self.basePages) < 17: # !!TODO <- define base page Global?
+                self.addPage(record)
+            else:
+                return False #TODO indicates to caller that another page range needs to be created
+        else:
+            # inserting a record means copying each of its data elements to the correct physical page associated with that column
+            currentPage.insert(record) #TODO <- tune insert so everthing added will be added
 
-    def __init__(self, rid, key, columns):
-        self.rid = rid
-        self.key = key
-        self.columns = columns
+        return True
+
+
+    def update(self, tailRID):
+        if not self.tailPages:
+            self.tailPages.append(Page(tailRID, record))
+            return True
+        pass
+
+    def addPage(self, record):
+        self.basePages.append(Page(record))
+        self.currentBasePage += 1
 
 class Table:
 
@@ -76,7 +85,7 @@ class Table:
         self.name = name
         self.key = key
         self.num_columns = num_columns
-        self.page_directory = {}
+        self.page_directory = [PageRange()]
             #operations:
                 #: find record from RID, from a set of page ranges
                 #: store Page ranges
@@ -85,8 +94,6 @@ class Table:
         self.tailRID = -1
         self.index = Index(self)
 
-        initialPageRange = PageRange()
-        pageRanges = []
         #add page range to page directory
 
         #page_directory = {"PageRanges": [pr1, pr2]}
@@ -94,8 +101,10 @@ class Table:
         #whichPageRange = floor(RID / PageRangeSize)
         #OffsetInPageRange = RID % PageRangeSize
 
-        # floor(3000 / 65535) = 0
+        # floor(3000 / 65535) = 0 <- index in list?
         # page range
+
+        #Andrew: if we using floor to calculate the page range to pull from why do we need a dict? I just changed it to list for now.
         
  
         #page_directory = {:[pr1, pr2, ...]}
@@ -104,10 +113,12 @@ class Table:
     def __merge(self):
         pass
 
-    def insertIntoTable(self, record):
+    def insert(self, record):
+        #note: record is a tuple
         self.baseRID += 1
         key = record[0]
         self.keyToRID[key] = self.baseRID
+        
         # do math on RID to get pageRange from page_directory
         # - whichPageRange = floor(RID / PageRangeSize)
         # - OffsetInPageRange = RID % PageRangeSize
@@ -116,7 +127,8 @@ class Table:
         # TODO: determine PageRangeSize global
         
         # then call pageRange.insert(record)
-        
+        calculatedPagerange = 0
+        self.page_directory[whichPageRange].insert(record)
         
 
 

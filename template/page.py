@@ -13,6 +13,15 @@ class Page:
         RID = PhysicalPage()
         timeStamp = PhysicalPage()
         schemaEncoding = PhysicalPage()
+        '''
+        This is a bit vector with one
+        bit per column that stores information about the update state of each column. In the
+        base records, the schema encoding will include a 0 bit for all the columns that have not
+        yet been updated and a 1 bit for those that have been updated. This helps optimize
+        queries by determining whether we need to follow the lineage or not. In non-cumulative
+        tail records, the schema encoding serves to distinguish between columns with updated
+        values and those with NULL values.
+        '''
         # make data PhysicalPages from record
         data_columns = []
         for data in record:

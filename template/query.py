@@ -19,6 +19,14 @@ class Query:
     # Read a record with specified RID
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
+    
+    When a record is deleted, the base record will be
+    invalidated by setting the RID of itself and all its tail records to a special value. These
+    invalidated records will be removed during the next merge cycle for the corresponding
+    page range. The invalidation part needs to be implemented during this milestone. The
+    removal of invalidated records will be implemented in the merge routine of the next
+    milestone.
+
     """
     def delete(self, key):
         pass
@@ -30,7 +38,7 @@ class Query:
     """
     def insert(self, *columns):
         schema_encoding = '0' * self.table.num_columns
-        self.table.insertIntoTable(columns)
+        self.table.insert(columns)
         pass
 
     """
