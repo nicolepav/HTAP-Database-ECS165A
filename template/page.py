@@ -41,24 +41,26 @@ class PhysicalPage:
 
     def has_capacity(self):
         return ((ElementsPerPhysicalPage - self.num_records) > 0)
-        pass
 
     def insert(self, value):
-        if self.has_capacity():
-            self.num_records += 1
-            update(self, value, num_records)
-            return num_records
-        else:
-            return False
+        if not self.has_capacity():
+            raise Exception("Insert Error: Physical Page is already full.")
+        self.num_records += 1
+        update(self, value, num_records)
+        return num_records
 
     def read(self, location):
         # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
+        if location < self.num_records:
+            raise Exception("Read Error: Record does not exist.")
         byte_location = location * BytesPerElement
         return int.from_bytes(self.data[(byte_location):(byte_location + 7)], byteorder='big')
         
 
     def update(self, value, location):
         # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
+        if location < self.num_records:
+            raise Exception("Update Error: Record does not exist.")
         byte_location = location * BytesPerElement
         self.data[(byte_location):(byte_location + 7)] = value.to_bytes(7, byteorder='big')
         
