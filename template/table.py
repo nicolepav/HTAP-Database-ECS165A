@@ -139,11 +139,3 @@ class Table:
         # self.page_directory.update({PageRangeSize*0 to PageRangeSize*1 - 1 : PageRange1})
         # self.page_directory.update({PageRangeSize*1 to PageRangeSize*2 - 1 : PageRange2})
 
-        
-        
-
-        
-        
-        
-
-        

@@ -1,5 +1,6 @@
 from template.table import Table, Record
 from template.index import Index
+from math import floor
 
 
 class Query:
@@ -58,7 +59,48 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        pass
+        # call on page update function
+        # are we calling on the base or tail page
+        # if tail page, which tail page (since there may be multiple)
+        # call page update function once correct page is found
+        
+
+        # Use table class and its "keyToRID" dictonary to find the rid, if key not found return -1
+        updateRID  = self.table.keyToRID.setdefault(key, -1)
+
+        #return false if there is no RID associated for given key, else update the key and return true
+        if (updateRID == -1):
+            print("No RID found for this key")
+            return False
+        
+        
+        #Use that RID and math too its in and the page range index
+        pageRangeIndex = floor(updateRID/(PagesPerPageRange * ElementsPerPage))
+        currentpageRangeofRID = self.table.page_directory[pageRangeIndex]
+        
+        #find what basepage its on (get the remainder to get size within that page range and divide it by the size of a basepage)
+        basePageIndex = floor(updateRID % (PagesPerPageRange * ElementsPerPage) / (PhysicalPagesPerPage * ElementsPerPhysicalPage))
+                                            # ( 16 * 500 )/( 9 * )
+        #updatedBasePage = currentpageRangeofRID.basePages[basePageIndex].updateRecord(updateRID, *columns)
+        
+        baseRecordMetaData = currentpageRangeofRID.basePages[basePageIndex].recordMetaData(updateRID)
+
+
+        # TODO: append to available tail page with respects to the Base Page see if there's space, else create a new tail page
+        
+        # check schema column if need to go to tail page (do this in lower lvl function?)
+        tailPageRID = 0
+        if baseRecordMetaData[3] == 1:                  # if schema column = 1
+            # indirection column of base points to tail RID
+            tailPageRID = baseRecordMetaData[0]
+            # find room in tailpage and append accordingly
+        else:
+            pass
+
+        #Use the pageUpdate method to update the appropiate column
+
+
+        return True
 
     """
     :param start_range: int         # Start of the key range to aggregate 

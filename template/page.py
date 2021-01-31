@@ -36,9 +36,31 @@ class Page:
         pass
     
     # updatedDataColumns - 0 1 0
-    def updateRecord(self, RID, updatedDataColumns):
+    def updateRecord(self, RID, *updatedDataColumns):
         # 1. translate RID to page offset
-        # 2. 
+        # get the element value and divide by the amount of elements in a physical page
+        offset = ((RID % (PagesPerPageRange * ElementsPerPage)) / ElementsPerPhysicalPage) # element location in page
+
+
+
+        # 2. check which columns need updating and update appropriately 
+        # NOTE: looking at the tester files, when he uses the update function he gives inputs the actual values and does not indicate with 0 or 1 so assuming None will mean 0
+        dataindex = 0
+        for dataInColumns in updatedDataColumns:
+            if dataInColumns != None:
+                #update the column
+                data_columns[dataindex].update(dataInColumns, offset)
+                dataindex += 1
+                
+        pass
+
+    def getMetaData(self, RID):
+        metaDataList = []
+        offset = ((RID % (PagesPerPageRange * ElementsPerPage)) / ElementsPerPhysicalPage)
+        metaDataList.append(self.indirectionColumn.read(offset))
+        metaDataList.append(self.RID.read(offset))
+        metaDataList.append(self.timeStamp.read(offset))
+        metaDataList.append(self.schemaEncoding.read(offset))
         pass
 
 # make up Page class
