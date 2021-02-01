@@ -1,4 +1,5 @@
 from template.config import *
+import time
 
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
@@ -7,92 +8,82 @@ SCHEMA_ENCODING_COLUMN = 3
 
 # aka base/tail pages
 class Page:
-    def __init__(self, record):
-        # make meta PhysicalPages
-        indirectionColumn = PhysicalPage()
-        RID = PhysicalPage()
-        timeStamp = PhysicalPage()
-        schemaEncoding = PhysicalPage()
-        '''
-        This is a bit vector with one
-        bit per column that stores information about the update state of each column. In the
-        base records, the schema encoding will include a 0 bit for all the columns that have not
-        yet been updated and a 1 bit for those that have been updated. This helps optimize
-        queries by determining whether we need to follow the lineage or not. In non-cumulative
-        tail records, the schema encoding serves to distinguish between columns with updated
-        values and those with NULL values.
-        '''
-        # make data PhysicalPages from record
-        data_columns = []
-        for data in record:
-            physicalPage = PhysicalPage(data)
-            data_columns.append(physicalPage)
-        pass
 
-    def insertRecord(self, RID, record):
-        # update meta columns - will need special case for 
-        # update data_columns: write each value of record
+    def __init__(self, num_columns):
+        # 1. initialize meta columns
+        self.metaColumns = []
+        for i in range(0, 4):
+            self.metaColumns.append(PhysicalPage())
+        # 2. initialize data columns
+        self.dataColumns = []
+        for columns in range(0, num_columns):
+            self.dataColumns.append(PhysicalPage())
 
-        pass
-    
-    # updatedDataColumns - 0 1 0
-    def updateRecord(self, RID, *updatedDataColumns):
-        # 1. translate RID to page offset
-        # get the element value and divide by the amount of elements in a physical page
-        offset = ((RID % (PagesPerPageRange * ElementsPerPage)) / ElementsPerPhysicalPage) # element location in page
+    # Appends each record's element across all physical pages
+    def insert(self, RID, record):
+        for index, dataColumn in enumerate(self.dataColumns):
+            dataColumn.appendData(record[index])
+        self.initializeRecordMetaData(RID)
+
+    # Appends meta data and record data
+    def fullInsert(self, RID, record):
+        for index, metaColumn in enumerate(self.metaColumns):
+            metaColumn.appendData(record[index])
+        for index, dataColumn in enumerate(self.dataColumns):
+            dataColumn.appendData(record[index + 4])
+
+    def getRecord(self, offset):
+        record = []
+        for metaData in self.metaColumns:
+            record.append(metaData.read(offset))
+        for dataColumn in self.dataColumns:
+            record.append(dataColumn.read(offset))
+        return record
 
 
+    def setIndirectionValue(self, value, offset):
+        self.metaColumns[INDIRECTION_COLUMN].update(value, offset)
 
-        # 2. check which columns need updating and update appropriately 
-        # NOTE: looking at the tester files, when he uses the update function he gives inputs the actual values and does not indicate with 0 or 1 so assuming None will mean 0
-        dataindex = 0
-        for dataInColumns in updatedDataColumns:
-            if dataInColumns != None:
-                #update the column
-                data_columns[dataindex].update(dataInColumns, offset)
-                dataindex += 1
-                
-        pass
+    # cumulative update so only need 1 bit
+    def setSchemaOn(self, offset):
+        self.metaColumns[SCHEMA_ENCODING_COLUMN].update(1, offset)
 
-    def getMetaData(self, RID):
-        metaDataList = []
-        offset = ((RID % (PagesPerPageRange * ElementsPerPage)) / ElementsPerPhysicalPage)
-        metaDataList.append(self.indirectionColumn.read(offset))
-        metaDataList.append(self.RID.read(offset))
-        metaDataList.append(self.timeStamp.read(offset))
-        metaDataList.append(self.schemaEncoding.read(offset))
-        pass
+    # num_records has reached global for number of records per physical page
+    # TODO unsure if this will always work
+    def isFull(self):
+        return self.dataColumns[0].num_records == ElementsPerPhysicalPage
 
-# make up Page class
+    def initializeRecordMetaData(self, baseRID):
+        self.metaColumns[INDIRECTION_COLUMN].appendData(0)
+        self.metaColumns[RID_COLUMN].appendData(baseRID)
+        self.metaColumns[TIMESTAMP_COLUMN].appendData(round(time.time() * 1000))
+        self.metaColumns[SCHEMA_ENCODING_COLUMN].appendData(0)
+
 class PhysicalPage:
 
     def __init__(self):
         self.num_records = 0
-        self.data = bytearray(BytesPerPhysicalPage)
+        self.data = bytearray()
 
     def has_capacity(self):
-        return ((ElementsPerPhysicalPage - self.num_records) > 0)
+        return self.num_records <= ElementsPerPhysicalPage
 
-    def insert(self, value):
+    def appendData(self, value):
         if not self.has_capacity():
             raise Exception("Insert Error: Physical Page is already full.")
         self.num_records += 1
-        update(self, value, num_records)
-        return num_records
+        self.data += value.to_bytes(8, byteorder='big')
 
     def read(self, location):
         # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
-        if location > self.num_records:
+        if location >= ElementsPerPhysicalPage:
             raise Exception("Read Error: Record does not exist.")
-        byte_location = location * BytesPerElement
-        return int.from_bytes(self.data[(byte_location):(byte_location + 7)], byteorder='big')
-        
+        byte_location = int(location * BytesPerElement)
+        return int.from_bytes(self.data[byte_location:byte_location + 8], byteorder='big')
 
     def update(self, value, location):
         # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
-        if location > self.num_records:
+        if location > ElementsPerPhysicalPage:
             raise Exception("Update Error: Record does not exist.")
-        byte_location = location * BytesPerElement
-        self.data[(byte_location):(byte_location + 7)] = value.to_bytes(7, byteorder='big')
-        
-
+        byte_location = int(location * BytesPerElement)
+        self.data[(byte_location):(byte_location + 8)] = value.to_bytes(8, byteorder='big')
