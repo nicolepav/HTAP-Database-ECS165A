@@ -18,6 +18,7 @@ class PageRange:
     def __init__(self):
         self.basePages = []
         self.tailPages = []
+        self.tailRID = -1
         pass
 
     # insert operation into base or tail page:
@@ -50,7 +51,8 @@ class PageRange:
     # else splice baseRecord and update schema bit
     # 3. append updated record to tail page
     # 4. update indirection column of base record and newly appended record
-    def update(self, baseRID, tailRID, record):
+    def update(self, baseRID, record):
+        self.tailRID += 1
         # 1.
         basePageIndex = self.calculatePageIndex(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
@@ -68,16 +70,11 @@ class PageRange:
             baseRecord = self.spliceRecord(baseRecord, record)
             self.basePages[basePageIndex].setSchemaOn(basePageOffset)
         # 3.
-        self.tailInsert(tailRID, baseRecord)
+        self.tailInsert(self.tailRID, baseRecord)
         # 4.
-        self.basePages[basePageIndex].setIndirectionValue(tailRID, basePageOffset)
-        tailPageIndex = self.calculatePageIndex(tailRID)
-        tailPageOffset = self.calculatePageOffset(tailRID)
-        # TODO debug update when tail page becomes full
-        if tailPageIndex == len(self.tailPages):
-            print(tailRID)
-            # tail page records aren't being kept track of correctly for some reason
-            print(self.tailPages[-1].dataColumns[0].num_records)
+        self.basePages[basePageIndex].setIndirectionValue(self.tailRID, basePageOffset)
+        tailPageIndex = self.calculatePageIndex(self.tailRID)
+        tailPageOffset = self.calculatePageOffset(self.tailRID)
         self.tailPages[tailPageIndex].setIndirectionValue(baseIndirectionRID, tailPageOffset)
 
     # Returns record objects
@@ -148,7 +145,6 @@ class Table:
         # map key to RID for query operations
         self.keyToRID = {}
         self.baseRID = -1
-        self.tailRID = -1
         self.index = Index(self)
         pass
 
@@ -178,9 +174,8 @@ class Table:
             print("No RID found for this key")
             return False
         baseRID = self.keyToRID[key]
-        self.tailRID += 1
         selectedPageRange  = floor(baseRID / RecordsPerPageRange)
-        self.page_directory[selectedPageRange].update(baseRID, self.tailRID, record)
+        self.page_directory[selectedPageRange].update(baseRID, record)
         return True
 
     # m1_tester expects a list of records for some reason
