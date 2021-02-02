@@ -97,6 +97,30 @@ class PageRange:
             record = Record(baseRecord[RID_COLUMN], key, baseRecord[4:])
             return record
 
+    def delete(self, key, baseRID):
+        basePageIndex = self.calculatePageIndex(baseRID)
+        basePageOffset = self.calculatePageOffset(baseRID)
+        baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
+        baseIndirectionRID = baseRecord[INDIRECTION_COLUMN]
+        schemaBit = baseRecord[SCHEMA_ENCODING_COLUMN]
+
+        baseRecord[RID_COLUMN] = "DELETION_FLAG"
+        if schemaBit == 1:
+            tailPageIndex = self.calculatePageIndex(baseIndirectionRID)
+            tailPageOffset = self.calculatePageOffset(baseIndirectionRID)
+            tailRecord = self.tailPages[tailPageIndex].getRecord(tailPageOffset)
+            tailIndirectionRID = tailRecord[INDIRECTION_COLUMN]
+            
+            #need help tmrw to finish
+            while (nextRecord is not None):
+
+                tailPageIndex = self.calculatePageIndex(tailIndirectionRID)
+                tailPageOffset = self.calculatePageOffset(tailIndirectionRID)
+                tailRecord = self.tailPages[tailPageIndex].getRecord(tailPageOffset)
+                tailIndirectionRID = tailRecord[INDIRECTION_COLUMN]
+            
+            
+
     # Example: RID 6000, page range 5000 records, get remainder 1000, divide it by how much elements are in each page say 100, then the rid is located in base page 10 of the range
     def calculatePageIndex(self, RID):
         return floor((RID % (PagesPerPageRange * ElementsPerPhysicalPage)) / ElementsPerPhysicalPage)
@@ -187,6 +211,11 @@ class Table:
         selectedPageRange  = floor(baseRID / RecordsPerPageRange)
         record = self.page_directory[selectedPageRange].select(key, baseRID)
         return [record]
+
+    def delete(self, key):
+        baseRID = self.keyToRID[key]
+        selectedPageRange  = floor(baseRID / RecordsPerPageRange)
+        self.page_directory[selectedPageRange].delete(key, baseRID)
 
     # m1_tester expects a int or false
     def sum(self, start_range, end_range, aggregate_column_index):

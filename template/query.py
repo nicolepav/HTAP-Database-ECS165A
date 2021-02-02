@@ -30,7 +30,7 @@ class Query:
 
     """
     def delete(self, key):
-        pass
+        self.table.delete(key)
 
     """
     # Insert a record with specified columns
