@@ -187,3 +187,23 @@ class Table:
         selectedPageRange  = floor(baseRID / RecordsPerPageRange)
         record = self.page_directory[selectedPageRange].select(key, baseRID)
         return [record]
+
+    # m1_tester expects a int or false
+    def sum(self, start_range, end_range, aggregate_column_index):
+        summation = 0
+        none_in_range = True
+        query_columns = [0, 0, 0, 0, 0]
+        query_columns[aggregate_column_index] = 1
+        for key in range(start_range, end_range + 1):
+            if key not in self.keyToRID:
+                record = False
+            else:
+                baseRID = self.keyToRID[key]
+                selectedPageRange  = floor(baseRID / RecordsPerPageRange)
+                record = self.page_directory[selectedPageRange].select(key, baseRID)
+                none_in_range = False
+                summation += record.columns[aggregate_column_index]
+        if (none_in_range):
+            return False
+        else:
+            return summation

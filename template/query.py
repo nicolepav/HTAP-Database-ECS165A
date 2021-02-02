@@ -70,7 +70,7 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
-        pass
+        return self.table.sum(start_range, end_range, aggregate_column_index)
 
     """
     incremenets one column of the record
