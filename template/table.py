@@ -79,7 +79,6 @@ class PageRange:
     # Returns record objects
     # 1. Same as self.update step 1.
     # 2. Setup record object
-    # TODO: set up getting specific record columns based on the column data (0 or 1) provided in query.select()
     def select(self, key, baseRID):
         basePageIndex = self.calculatePageIndex(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
@@ -207,13 +206,13 @@ class Table:
         baseRID = self.keyToRID[key]
         selectedPageRange  = self.getPageRange(baseRID)
         record = self.page_directory[selectedPageRange].select(key, baseRID)
-        # Here is one way to pass back only certain columns, but it will be faster if implemented in the query.select() function
-        # returned_record_columns = []
-        # for query_column in range(len(query_columns)):
-        #     if (query_columns[query_column] == 1):
-        #         returned_record_columns.append(record.columns[query_column])
-        # return [Record(record.rid, record.key, returned_record_columns)]
-        return [record]
+        returned_record_columns = []
+        for query_column in range(len(query_columns)):
+            if (query_columns[query_column] == 1):
+                returned_record_columns.append(record.columns[query_column])
+            else:
+                returned_record_columns.append(None)
+        return [Record(record.rid, record.key, returned_record_columns)]
 
     def delete(self, key):
         if key not in self.keyToRID:
