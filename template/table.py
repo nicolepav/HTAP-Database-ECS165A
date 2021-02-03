@@ -39,7 +39,7 @@ class PageRange:
     def tailInsert(self, RID, fullRecord):
         if not self.tailPages or self.tailPages[-1].isFull():
             # only want len(dataColumns) for Page Instantiation
-            newPage = Page(len(fullRecord) - 4)
+            newPage = Page(len(fullRecord) - MetaElements)
             newPage.fullInsert(RID, fullRecord)
             self.tailPages.append(newPage)
         else:
@@ -91,10 +91,10 @@ class PageRange:
             tailPageIndex = self.calculatePageIndex(baseIndirectionRID)
             tailPageOffset = self.calculatePageOffset(baseIndirectionRID)
             tailRecord = self.tailPages[tailPageIndex].getRecord(tailPageOffset)
-            record = Record(tailRecord[RID_COLUMN], key, tailRecord[4:])
+            record = Record(tailRecord[RID_COLUMN], key, tailRecord[MetaElements:])
             return record
         else:
-            record = Record(baseRecord[RID_COLUMN], key, baseRecord[4:])
+            record = Record(baseRecord[RID_COLUMN], key, baseRecord[MetaElements:])
             return record
 
     def delete(self, key, baseRID):
@@ -140,7 +140,7 @@ class PageRange:
 
     def spliceRecord(self, oldRecord, newRecord):
         createdRecord = []
-        for metaIndex in range(0, 4):
+        for metaIndex in range(0, MetaElements):
             createdRecord.append(oldRecord[metaIndex])
         for columnIndex in range(0, len(newRecord)):
             #use data from the oldRecord
@@ -202,7 +202,7 @@ class Table:
         self.page_directory[selectedPageRange].update(baseRID, record)
         return True
 
-    # m1_tester expects a list of records for some reason
+    # m1_tester expects a list of record objects, but we should only be passing back certain columns
     def select(self, key, column, query_columns):
         if key not in self.keyToRID:
             print("No RID found for this key")
@@ -210,6 +210,12 @@ class Table:
         baseRID = self.keyToRID[key]
         selectedPageRange  = floor(baseRID / RecordsPerPageRange)
         record = self.page_directory[selectedPageRange].select(key, baseRID)
+        # Here is one way to pass back only certain columns, but it will be faster if implemented in the query.select() function
+        # returned_record_columns = []
+        # for query_column in range(len(query_columns)):
+        #     if (query_columns[query_column] == 1):
+        #         returned_record_columns.append(record.columns[query_column])
+        # return [Record(record.rid, record.key, returned_record_columns)]
         return [record]
 
     def delete(self, key):
@@ -217,12 +223,9 @@ class Table:
         selectedPageRange  = floor(baseRID / RecordsPerPageRange)
         self.page_directory[selectedPageRange].delete(key, baseRID)
 
-    # m1_tester expects a int or false
     def sum(self, start_range, end_range, aggregate_column_index):
         summation = 0
         none_in_range = True
-        query_columns = [0, 0, 0, 0, 0]
-        query_columns[aggregate_column_index] = 1
         for key in range(start_range, end_range + 1):
             if key not in self.keyToRID:
                 record = False

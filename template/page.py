@@ -12,7 +12,7 @@ class Page:
     def __init__(self, num_columns):
         # 1. initialize meta columns
         self.metaColumns = []
-        for i in range(0, 4):
+        for i in range(0, MetaElements):
             self.metaColumns.append(PhysicalPage())
         # 2. initialize data columns
         self.dataColumns = []
@@ -30,7 +30,7 @@ class Page:
         for index, metaColumn in enumerate(self.metaColumns):
             metaColumn.appendData(record[index])
         for index, dataColumn in enumerate(self.dataColumns):
-            dataColumn.appendData(record[index + 4])
+            dataColumn.appendData(record[index + MetaElements])
 
     def getRecord(self, offset):
         record = []
@@ -72,18 +72,18 @@ class PhysicalPage:
         if not self.has_capacity():
             raise Exception("Insert Error: Physical Page is already full.")
         self.num_records += 1
-        self.data += value.to_bytes(8, byteorder='big')
+        self.data += value.to_bytes(BytesPerElement, byteorder='big')
 
     def read(self, location):
         # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
         if location >= ElementsPerPhysicalPage:
             raise Exception("Read Error: Record does not exist.")
         byte_location = int(location * BytesPerElement)
-        return int.from_bytes(self.data[byte_location:byte_location + 8], byteorder='big')
+        return int.from_bytes(self.data[byte_location:byte_location + BytesPerElement], byteorder='big')
 
     def update(self, value, location):
         # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
         if location > ElementsPerPhysicalPage:
             raise Exception("Update Error: Record does not exist.")
         byte_location = int(location * BytesPerElement)
-        self.data[(byte_location):(byte_location + 8)] = value.to_bytes(8, byteorder='big')
+        self.data[(byte_location):(byte_location + BytesPerElement)] = value.to_bytes(BytesPerElement, byteorder='big')

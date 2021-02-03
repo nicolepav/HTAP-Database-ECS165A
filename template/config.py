@@ -10,6 +10,7 @@ BytesPerElement = 8
 PhysicalPageBytes = 4096
 # aka records per base page
 ElementsPerPhysicalPage = PhysicalPageBytes /  BytesPerElement
+MetaElements = 4
 PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = PagesPerPageRange * ElementsPerPhysicalPage
