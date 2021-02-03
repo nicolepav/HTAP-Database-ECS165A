@@ -46,36 +46,35 @@ class PageRange:
             self.tailPages[-1].fullInsert(RID, fullRecord)
 
     # single tail page cumulative update
-    # 1. Get base page index, offset, and record (metadata and data)
-    # 2. Create updated record: If schemaBit set, need to get latest tail record to splice records (for cumulative),
-    # else splice baseRecord and update schema bit
-    # 3. append updated record to tail page
-    # 4. update indirection column of base record and newly appended record
-    def update(self, baseRID, record):
-        self.tailRID += 1
+    # 1. Get the base record's page index, the record's offset, and record values
+    # 2. Create the cumulative record based off a. previous tail record or b. base record
+    #       a. Get previous tail record, update new record's indirection column, splice in previous tail record values
+    #       b. Splice base record into updatedRecord and update indirection column
+    # 3. Increment and insert the new cumulative record. Update base record meta data
+    def update(self, baseRID, updatedRecord):
         # 1.
         basePageIndex = self.calculatePageIndex(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
-        baseIndirectionRID = baseRecord[INDIRECTION_COLUMN]
-        schemaBit = baseRecord[SCHEMA_ENCODING_COLUMN]
         # 2.
-        if schemaBit == 1:
-            previousTailPageIndex = self.calculatePageIndex(baseIndirectionRID)
-            previousTailPageOffset = self.calculatePageOffset(baseIndirectionRID)
-            previouslyUpdatedRecord = self.tailPages[previousTailPageIndex].getRecord(previousTailPageOffset)
-            baseRecord = self.spliceRecord(previouslyUpdatedRecord, record)
-            self.tailPages[previousTailPageIndex].setSchemaOn(previousTailPageOffset)
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
+            previousTailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
+            cumulativeRecord = self.spliceRecord(previousTailRecord, updatedRecord)
+            cumulativeRecord[INDIRECTION_COLUMN] = previousTailRecord[INDIRECTION_COLUMN]
+            cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
         else:
-            baseRecord = self.spliceRecord(baseRecord, record)
-            self.basePages[basePageIndex].setSchemaOn(basePageOffset)
+            cumulativeRecord = self.spliceRecord(baseRecord, updatedRecord)
+            cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[INDIRECTION_COLUMN]
         # 3.
-        self.tailInsert(self.tailRID, baseRecord)
-        # 4.
-        self.basePages[basePageIndex].setIndirectionValue(self.tailRID, basePageOffset)
-        tailPageIndex = self.calculatePageIndex(self.tailRID)
-        tailPageOffset = self.calculatePageOffset(self.tailRID)
-        self.tailPages[tailPageIndex].setIndirectionValue(baseIndirectionRID, tailPageOffset)
+        self.tailRID += 1
+        self.tailInsert(self.tailRID, cumulativeRecord)
+        self.basePages[basePageIndex].newRecordAppended(self.tailRID, basePageOffset)
+
+    def getPreviousTailRecord(self, baseIndirectionRID):
+        previousTailPageIndex = self.calculatePageIndex(baseIndirectionRID)
+        previousTailPageOffset = self.calculatePageOffset(baseIndirectionRID)
+        previouslyUpdatedRecord = self.tailPages[previousTailPageIndex].getRecord(previousTailPageOffset)
+        return previouslyUpdatedRecord
 
     # Returns record objects
     # 1. Same as self.update step 1.
@@ -97,29 +96,27 @@ class PageRange:
             record = Record(baseRecord[RID_COLUMN], key, baseRecord[MetaElements:])
             return record
 
+    # 1. Invalidate base record
+    # 2. Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
     def delete(self, key, baseRID):
+        # 1.
         basePageIndex = self.calculatePageIndex(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
+        self.basePages[basePageIndex].invalidateRecord(basePageOffset)
         baseIndirectionRID = baseRecord[INDIRECTION_COLUMN]
-        schemaBit = baseRecord[SCHEMA_ENCODING_COLUMN]
+        # 2.
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
+            self.invalidateTailRecords(baseIndirectionRID, baseIndirectionRID)
 
-        baseRecord[RID_COLUMN] = "DELETION_FLAG"
-        if schemaBit == 1:
-            tailPageIndex = self.calculatePageIndex(baseIndirectionRID)
-            tailPageOffset = self.calculatePageOffset(baseIndirectionRID)
-            tailRecord = self.tailPages[tailPageIndex].getRecord(tailPageOffset)
-            tailIndirectionRID = tailRecord[INDIRECTION_COLUMN]
-            
-            #need help tmrw to finish
-            while (nextRecord is not None):
-
-                tailPageIndex = self.calculatePageIndex(tailIndirectionRID)
-                tailPageOffset = self.calculatePageOffset(tailIndirectionRID)
-                tailRecord = self.tailPages[tailPageIndex].getRecord(tailPageOffset)
-                tailIndirectionRID = tailRecord[INDIRECTION_COLUMN]
-            
-            
+    def invalidateTailRecords(self, indirectionRID, baseIndirectionRID):
+        if indirectionRID == baseIndirectionRID:
+            return
+        else:
+            pageIndex = self.calculatePageIndex(indirectionRID)
+            pageOffset = self.calculatePageOffset(indirectionRID)
+            nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
+            self.invalidateTailRecords(nextRID, baseIndirectionRID)
 
     # Example: RID 6000, page range 5000 records, get remainder 1000, divide it by how much elements are in each page say 100, then the rid is located in base page 10 of the range
     def calculatePageIndex(self, RID):
@@ -138,16 +135,16 @@ class PageRange:
         self.basePages.appendBase(Page(record))
         self.currentBasePage += 1
 
-    def spliceRecord(self, oldRecord, newRecord):
+    def spliceRecord(self, oldRecord, updatedRecord):
         createdRecord = []
         for metaIndex in range(0, MetaElements):
             createdRecord.append(oldRecord[metaIndex])
-        for columnIndex in range(0, len(newRecord)):
+        for columnIndex in range(0, len(updatedRecord)):
             #use data from the oldRecord
-            if newRecord[columnIndex] == None:
+            if updatedRecord[columnIndex] == None:
                 createdRecord.append(oldRecord[columnIndex + 4])
             else:
-                createdRecord.append(newRecord[columnIndex])
+                createdRecord.append(updatedRecord[columnIndex])
 
         return createdRecord
 
@@ -185,7 +182,7 @@ class Table:
         key = record[0]
         self.keyToRID[key] = self.baseRID
         # 2.
-        selectedPageRange = floor(self.baseRID / RecordsPerPageRange)
+        selectedPageRange = self.getPageRange(self.baseRID)
         if selectedPageRange >= len(self.page_directory):
             self.page_directory.append(PageRange())
             print("new page range")
@@ -198,7 +195,7 @@ class Table:
             print("No RID found for this key")
             return False
         baseRID = self.keyToRID[key]
-        selectedPageRange  = floor(baseRID / RecordsPerPageRange)
+        selectedPageRange  = self.getPageRange(baseRID)
         self.page_directory[selectedPageRange].update(baseRID, record)
         return True
 
@@ -208,7 +205,7 @@ class Table:
             print("No RID found for this key")
             return False
         baseRID = self.keyToRID[key]
-        selectedPageRange  = floor(baseRID / RecordsPerPageRange)
+        selectedPageRange  = self.getPageRange(baseRID)
         record = self.page_directory[selectedPageRange].select(key, baseRID)
         # Here is one way to pass back only certain columns, but it will be faster if implemented in the query.select() function
         # returned_record_columns = []
@@ -219,8 +216,11 @@ class Table:
         return [record]
 
     def delete(self, key):
+        if key not in self.keyToRID:
+            print("No RID found for this key")
+            return False
         baseRID = self.keyToRID[key]
-        selectedPageRange  = floor(baseRID / RecordsPerPageRange)
+        selectedPageRange = self.getPageRange(baseRID)
         self.page_directory[selectedPageRange].delete(key, baseRID)
 
     def sum(self, start_range, end_range, aggregate_column_index):
@@ -231,7 +231,7 @@ class Table:
                 record = False
             else:
                 baseRID = self.keyToRID[key]
-                selectedPageRange  = floor(baseRID / RecordsPerPageRange)
+                selectedPageRange  = self.getPageRange(baseRID)
                 record = self.page_directory[selectedPageRange].select(key, baseRID)
                 none_in_range = False
                 summation += record.columns[aggregate_column_index]
@@ -239,3 +239,6 @@ class Table:
             return False
         else:
             return summation
+
+    def getPageRange(self, baseRID):
+        return floor(baseRID / RecordsPerPageRange)

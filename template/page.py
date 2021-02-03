@@ -6,6 +6,7 @@ RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
 SCHEMA_ENCODING_COLUMN = 3
 
+INVALID = 0
 # aka base/tail pages
 class Page:
 
@@ -40,16 +41,10 @@ class Page:
             record.append(dataColumn.read(offset))
         return record
 
+    def newRecordAppended(self, RID, pageOffset):
+        self.metaColumns[INDIRECTION_COLUMN].update(RID, pageOffset)
+        self.metaColumns[SCHEMA_ENCODING_COLUMN].update(1, pageOffset)
 
-    def setIndirectionValue(self, value, offset):
-        self.metaColumns[INDIRECTION_COLUMN].update(value, offset)
-
-    # cumulative update so only need 1 bit
-    def setSchemaOn(self, offset):
-        self.metaColumns[SCHEMA_ENCODING_COLUMN].update(1, offset)
-
-    # num_records has reached global for number of records per physical page
-    # TODO unsure if this will always work
     def isFull(self):
         return self.dataColumns[0].num_records == ElementsPerPhysicalPage
 
@@ -58,6 +53,10 @@ class Page:
         self.metaColumns[RID_COLUMN].appendData(baseRID)
         self.metaColumns[TIMESTAMP_COLUMN].appendData(round(time.time() * 1000))
         self.metaColumns[SCHEMA_ENCODING_COLUMN].appendData(0)
+
+    def invalidateRecord(self, pageOffset):
+        self.metaColumns[RID_COLUMN].update(INVALID, pageOffset)
+        return self.metaColumns[INDIRECTION_COLUMN].read(pageOffset)
 
 class PhysicalPage:
 

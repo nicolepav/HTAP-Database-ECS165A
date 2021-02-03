@@ -14,3 +14,4 @@ MetaElements = 4
 PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = PagesPerPageRange * ElementsPerPhysicalPage
+MetaElements = 4
