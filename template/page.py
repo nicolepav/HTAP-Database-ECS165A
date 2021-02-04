@@ -27,7 +27,7 @@ class Page:
         self.initializeRecordMetaData(RID)
 
     # Appends meta data and record data
-    def tailInsert(self, RID, record):
+    def tailInsert(self, record):
         for index, metaColumn in enumerate(self.metaColumns):
             metaColumn.appendData(record[index])
         for index, dataColumn in enumerate(self.dataColumns):

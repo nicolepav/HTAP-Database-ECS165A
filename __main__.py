@@ -42,7 +42,9 @@ print("Selecting 10k records took:  \t\t\t", select_time_1 - select_time_0)
 # Measuring Aggregate Performance
 agg_time_0 = process_time()
 for i in range(0, 10000, 100):
-    result = query.sum(i, 100, randrange(0, 5))
+    start_value = 906659671 + i
+    end_value = start_value + 100
+    result = query.sum(start_value, end_value, randrange(0, 5))
 agg_time_1 = process_time()
 print("Aggregate 10k of 100 record batch took:\t", agg_time_1 - agg_time_0)
 
@@ -52,3 +54,7 @@ for i in range(0, 10000):
     query.delete(906659671 + i)
 delete_time_1 = process_time()
 print("Deleting 10k records took:  \t\t\t", delete_time_1 - delete_time_0)
+
+for i in range(0, 10000):
+    record = query.select(choice(keys),0 , [1, 1, 1, 1, 1])[0]
+    # print(record.rid, record.columns)

@@ -1,6 +1,6 @@
 from template.page import *
 from template.index import Index
-from time import time
+import time
 from math import floor
 
 INDIRECTION_COLUMN = 0
@@ -36,14 +36,14 @@ class PageRange:
 
     # Similar to baseInsert but takes in record with meta data and data
     # and does a full insert of meta data and data
-    def tailInsert(self, RID, fullRecord):
+    def tailInsert(self, fullRecord):
         if not self.tailPages or self.tailPages[-1].isFull():
             # only want len(dataColumns) for Page Instantiation
             newPage = Page(len(fullRecord) - MetaElements)
-            newPage.tailInsert(RID, fullRecord)
+            newPage.tailInsert(fullRecord)
             self.tailPages.append(newPage)
         else:
-            self.tailPages[-1].tailInsert(RID, fullRecord)
+            self.tailPages[-1].tailInsert(fullRecord)
 
     # single tail page cumulative update
     # 1. Get the base record's page index, the record's offset, and record values
@@ -61,13 +61,15 @@ class PageRange:
             previousTailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
             cumulativeRecord = self.spliceRecord(previousTailRecord, updatedRecord)
             cumulativeRecord[INDIRECTION_COLUMN] = previousTailRecord[RID_COLUMN]
-            cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
         else:
             cumulativeRecord = self.spliceRecord(baseRecord, updatedRecord)
             cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[RID_COLUMN]
         # 3.
         self.tailRID += 1
-        self.tailInsert(self.tailRID, cumulativeRecord)
+        cumulativeRecord[RID_COLUMN] = self.tailRID
+        cumulativeRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
+        cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
+        self.tailInsert(cumulativeRecord)
         self.basePages[basePageIndex].newRecordAppended(self.tailRID, basePageOffset)
 
     def getPreviousTailRecord(self, baseIndirectionRID):
@@ -103,19 +105,19 @@ class PageRange:
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
         self.basePages[basePageIndex].invalidateRecord(basePageOffset)
-        baseIndirectionRID = baseRecord[INDIRECTION_COLUMN]
         # 2.
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
-            self.invalidateTailRecords(baseIndirectionRID, baseIndirectionRID)
+            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRecord[RID_COLUMN])
 
-    def invalidateTailRecords(self, indirectionRID, baseIndirectionRID):
-        if indirectionRID == baseIndirectionRID:
+    def invalidateTailRecords(self, indirectionRID, baseRID):
+        print(indirectionRID, baseRID)
+        if indirectionRID == baseRID:
             return
         else:
             pageIndex = self.calculatePageIndex(indirectionRID)
             pageOffset = self.calculatePageOffset(indirectionRID)
             nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
-            self.invalidateTailRecords(nextRID, baseIndirectionRID)
+            self.invalidateTailRecords(nextRID, baseRID)
 
     # Example: RID 6000, page range 5000 records, get remainder 1000, divide it by how much elements are in each page say 100, then the rid is located in base page 10 of the range
     def calculatePageIndex(self, RID):
