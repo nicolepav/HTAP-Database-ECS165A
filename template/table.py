@@ -60,11 +60,11 @@ class PageRange:
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
             previousTailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
             cumulativeRecord = self.spliceRecord(previousTailRecord, updatedRecord)
-            cumulativeRecord[INDIRECTION_COLUMN] = previousTailRecord[INDIRECTION_COLUMN]
+            cumulativeRecord[INDIRECTION_COLUMN] = previousTailRecord[RID_COLUMN]
             cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
         else:
             cumulativeRecord = self.spliceRecord(baseRecord, updatedRecord)
-            cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[INDIRECTION_COLUMN]
+            cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[RID_COLUMN]
         # 3.
         self.tailRID += 1
         self.tailInsert(self.tailRID, cumulativeRecord)
