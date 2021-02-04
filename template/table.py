@@ -28,11 +28,11 @@ class PageRange:
         # 1.
         if not self.basePages or self.basePages[-1].isFull():
             newPage = Page(len(recordData))
-            newPage.insert(RID, recordData)
+            newPage.baseInsert(RID, recordData)
             self.basePages.append(newPage)
         # 2.
         else:
-            self.basePages[-1].insert(RID, recordData)
+            self.basePages[-1].baseInsert(RID, recordData)
 
     # Similar to baseInsert but takes in record with meta data and data
     # and does a full insert of meta data and data
@@ -40,10 +40,10 @@ class PageRange:
         if not self.tailPages or self.tailPages[-1].isFull():
             # only want len(dataColumns) for Page Instantiation
             newPage = Page(len(fullRecord) - MetaElements)
-            newPage.fullInsert(RID, fullRecord)
+            newPage.tailInsert(RID, fullRecord)
             self.tailPages.append(newPage)
         else:
-            self.tailPages[-1].fullInsert(RID, fullRecord)
+            self.tailPages[-1].tailInsert(RID, fullRecord)
 
     # single tail page cumulative update
     # 1. Get the base record's page index, the record's offset, and record values

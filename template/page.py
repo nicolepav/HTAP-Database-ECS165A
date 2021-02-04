@@ -21,13 +21,13 @@ class Page:
             self.dataColumns.append(PhysicalPage())
 
     # Appends each record's element across all physical pages
-    def insert(self, RID, record):
+    def baseInsert(self, RID, record):
         for index, dataColumn in enumerate(self.dataColumns):
             dataColumn.appendData(record[index])
         self.initializeRecordMetaData(RID)
 
     # Appends meta data and record data
-    def fullInsert(self, RID, record):
+    def tailInsert(self, RID, record):
         for index, metaColumn in enumerate(self.metaColumns):
             metaColumn.appendData(record[index])
         for index, dataColumn in enumerate(self.dataColumns):
