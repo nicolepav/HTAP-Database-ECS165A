@@ -63,26 +63,33 @@ class PhysicalPage:
     def __init__(self):
         self.num_records = 0
         self.data = bytearray()
+        # Element(byte, byte, byte, byte, byte, byte, byte, '\x00')
+        # 8 "bytes" in one "element" 
+        # Note that only 7 of the bytes can be written to!
 
     def has_capacity(self):
-        return self.num_records <= ElementsPerPhysicalPage
+        return self.num_records < ElementsPerPhysicalPage
 
     def appendData(self, value):
+        # if a physical page has capacity, append and element to the Physical Page
         if not self.has_capacity():
             raise Exception("Insert Error: Physical Page is already full.")
         self.num_records += 1
         self.data += value.to_bytes(BytesPerElement, byteorder='big')
 
     def read(self, location):
-        # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
+        # location should be the element value between 0 and 511 (ElementsPerPhysicalPage)
+        # if the location is valid, then we can read the element from its location on the Physical Page
         if location >= ElementsPerPhysicalPage:
             raise Exception("Read Error: Record does not exist.")
         byte_location = int(location * BytesPerElement)
         return int.from_bytes(self.data[byte_location:byte_location + BytesPerElement], byteorder='big')
 
     def update(self, value, location):
-        # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
-        if location > ElementsPerPhysicalPage:
+        # location should be the element value between 0 and 511 (ElementsPerPhysicalPage)
+        # if the location is valid, then we can read the element from its location on the Physical Page
+        # Note that this update function is not used to update a record, it is used for updating meta data columns
+        if location >= ElementsPerPhysicalPage:
             raise Exception("Update Error: Record does not exist.")
         byte_location = int(location * BytesPerElement)
         self.data[(byte_location):(byte_location + BytesPerElement)] = value.to_bytes(BytesPerElement, byteorder='big')

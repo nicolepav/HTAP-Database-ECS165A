@@ -70,7 +70,27 @@ class PageRange:
         cumulativeRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
         cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
         self.tailInsert(cumulativeRecord)
+        # set base page's indirection to most updated record
         self.basePages[basePageIndex].newRecordAppended(self.tailRID, basePageOffset)
+        baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
+        # print("cumulative rid: ", self.tailRID, "base indirection: ", baseRecord[INDIRECTION_COLUMN], "cumulative indirection: ", cumulativeRecord[INDIRECTION_COLUMN])
+        # Only Finding:
+        # baseRecord[INDIRECTION_COLUMN] -> infinite recursion
+        # cumulativeRecord[INDIRECTION_COLUMN] -> works
+        self.followLineage(cumulativeRecord[INDIRECTION_COLUMN], baseRID, 0)
+
+    def followLineage(self, indirectionRID, baseRID, index):
+        # print(index)
+        index += 1
+        if indirectionRID == baseRID:
+            # print("TERMINATED")
+            return
+        else:
+            pageIndex = self.calculatePageIndex(indirectionRID)
+            pageOffset = self.calculatePageOffset(indirectionRID)
+            nextRecord = self.tailPages[pageIndex].getRecord(pageOffset)
+            #print("current RID",  nextRecord[RID_COLUMN], "next record RID: ", nextRecord[INDIRECTION_COLUMN],"BaseRID", baseRID, "\n")
+            self.followLineage(nextRecord[INDIRECTION_COLUMN], baseRID, index)
 
     def getPreviousTailRecord(self, baseIndirectionRID):
         previousTailPageIndex = self.calculatePageIndex(baseIndirectionRID)
@@ -104,20 +124,20 @@ class PageRange:
         basePageIndex = self.calculatePageIndex(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
-        self.basePages[basePageIndex].invalidateRecord(basePageOffset)
+        # self.basePages[basePageIndex].invalidateRecord(basePageOffset)
         # 2.
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
-            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRecord[RID_COLUMN])
+            self.followLineage(baseRecord[INDIRECTION_COLUMN], baseRID, 0)
 
-    def invalidateTailRecords(self, indirectionRID, baseRID):
-        print(indirectionRID, baseRID)
-        if indirectionRID == baseRID:
-            return
-        else:
-            pageIndex = self.calculatePageIndex(indirectionRID)
-            pageOffset = self.calculatePageOffset(indirectionRID)
-            nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
-            self.invalidateTailRecords(nextRID, baseRID)
+    # def followLineage(self, indirectionRID, baseRID):
+    #     print(indirectionRID, baseRID)
+    #     if indirectionRID == baseRID:
+    #         return
+    #     else:
+    #         pageIndex = self.calculatePageIndex(indirectionRID)
+    #         pageOffset = self.calculatePageOffset(indirectionRID)
+    #         nextRID = self.tailPages[pageIndex].getRecord(pageOffset)[INDIRECTION_COLUMN]
+
 
     # Example: RID 6000, page range 5000 records, get remainder 1000, divide it by how much elements are in each page say 100, then the rid is located in base page 10 of the range
     def calculatePageIndex(self, RID):
@@ -136,6 +156,7 @@ class PageRange:
         self.basePages.appendBase(Page(record))
         self.currentBasePage += 1
 
+    # Cumulative splicing
     def spliceRecord(self, oldRecord, updatedRecord):
         createdRecord = []
         for metaIndex in range(0, MetaElements):
