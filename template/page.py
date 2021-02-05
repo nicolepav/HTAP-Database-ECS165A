@@ -75,14 +75,14 @@ class PhysicalPage:
 
     def read(self, location):
         # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
-        if location >= ElementsPerPhysicalPage:
+        if location > self.num_records:
             raise Exception("Read Error: Record does not exist.")
         byte_location = int(location * BytesPerElement)
         return int.from_bytes(self.data[byte_location:byte_location + BytesPerElement], byteorder='big')
 
     def update(self, value, location):
         # location should be the element value between 0 and 512 (ElementsPerPhysicalPage)
-        if location > ElementsPerPhysicalPage:
+        if location > self.num_records:
             raise Exception("Update Error: Record does not exist.")
         byte_location = int(location * BytesPerElement)
         self.data[(byte_location):(byte_location + BytesPerElement)] = value.to_bytes(BytesPerElement, byteorder='big')
