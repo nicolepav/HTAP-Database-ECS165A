@@ -2,6 +2,8 @@ from template.page import *
 from template.index import Index
 import time
 from math import floor
+import threading
+import concurrent.futures
 
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
@@ -19,6 +21,7 @@ class PageRange:
         self.basePages = []
         self.tailPages = []
         self.tailRID = -1
+        self.numMerges = 0
         pass
 
     # insert operation into base or tail page:
@@ -27,23 +30,57 @@ class PageRange:
     def baseInsert(self, RID, recordData):
         # 1.
         if not self.basePages or self.basePages[-1].isFull():
-            newPage = Page(len(recordData))
-            newPage.baseInsert(RID, recordData)
+            newPage = BasePage(len(recordData))
+            newPage.insert(RID, recordData)
             self.basePages.append(newPage)
         # 2.
         else:
-            self.basePages[-1].baseInsert(RID, recordData)
+            self.basePages[-1].insert(RID, recordData)
 
     # Similar to baseInsert but takes in record with meta data and data
     # and does a full insert of meta data and data
+    # Accounts for merge if needed
     def tailInsert(self, fullRecord):
         if not self.tailPages or self.tailPages[-1].isFull():
+            if len(self.tailPages) == MergePolicy:
+                self.initiateMerge()
             # only want len(dataColumns) for Page Instantiation
-            newPage = Page(len(fullRecord) - MetaElements)
-            newPage.tailInsert(fullRecord)
+            newPage = TailPage(len(fullRecord) - MetaElements)
+            newPage.insert(fullRecord)
             self.tailPages.append(newPage)
         else:
-            self.tailPages[-1].tailInsert(fullRecord)
+            self.tailPages[-1].insert(fullRecord)
+
+    # 1. Copy base pages
+    # 2. When backgroundThread returns, only copy mergedPages data into our current basePages
+    # 3. Remove merged tail pages
+    def initiateMerge(self):
+        copiedBasePages = self.basePages.copy()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            backgroundThread = executor.submit(self.performMerge, copiedBasePages, self.tailPages)
+            mergedPages = backgroundThread.result()
+            for index, mergedBasePage in enumerate(mergedPages):
+                self.basePages[index].dataColumns = mergedBasePage.dataColumns
+            self.numMerges += 1
+            # print("numMerges: ", self.numMerges)
+            self.tailPages = self.tailPages[MergePolicy:]
+
+    # 1. For each base page
+        # a. Iterate through all base records and if updated, get tail page record
+        # b. Merge tail record into base record in BasePage object
+    # 2. return updated basePages
+    def performMerge(self, basePages, tailPages):
+        for basePage in basePages:
+            allBasePageRecords = basePage.getAllRecords()
+            for baseRecord in allBasePageRecords:
+                if baseRecord[INDIRECTION_COLUMN] > 0:
+                    tailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
+                    # print("Merging ", tailRecord, "\n with ", baseRecord)
+                    basePageOffset = self.calculatePageOffset(baseRecord[RID_COLUMN])
+                    basePage.mergeTailRecord(basePageOffset, tailRecord[RID_COLUMN], tailRecord[MetaElements:])
+                    mergedRecord = basePage.getRecord(basePageOffset)
+                    # print("result: ", mergedRecord, "\n\n")
+        return basePages
 
     # single tail page cumulative update
     # 1. Get the base record's page index, the record's offset, and record values
@@ -58,7 +95,7 @@ class PageRange:
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
         prev = 0
         # 2.
-        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1 and not self.recordHasBeenMerged(baseRecord, basePageIndex):
             previousTailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
             cumulativeRecord = self.spliceRecord(previousTailRecord, updatedRecord)
             cumulativeRecord[INDIRECTION_COLUMN] = previousTailRecord[RID_COLUMN]
@@ -90,7 +127,7 @@ class PageRange:
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
         baseIndirectionRID = baseRecord[INDIRECTION_COLUMN]
         schemaBit = baseRecord[SCHEMA_ENCODING_COLUMN]
-        if schemaBit == 1:
+        if schemaBit == 1 and not self.recordHasBeenMerged(baseRecord, basePageIndex):
             tailPageIndex = self.calculateTailPageIndex(baseIndirectionRID)
             tailPageOffset = self.calculatePageOffset(baseIndirectionRID)
             tailRecord = self.tailPages[tailPageIndex].getRecord(tailPageOffset)
@@ -118,8 +155,21 @@ class PageRange:
         else:
             pageIndex = self.calculateTailPageIndex(indirectionRID)
             pageOffset = self.calculatePageOffset(indirectionRID)
-            nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
-            self.invalidateTailRecords(nextRID, baseIndirectionRID)
+            # Check to see if page already removed and return if so
+            if pageIndex < 0 or pageIndex >= len(self.tailPages):
+                # print("Page already removed in merge")
+                return
+            try:
+                nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
+                self.invalidateTailRecords(nextRID, baseIndirectionRID)
+            except:
+                print("race case occured?")
+
+    # Base record's indirection is pointing to a record that's already been merged
+    def recordHasBeenMerged(self, baseRecord, basePageIndex):
+        if baseRecord[INDIRECTION_COLUMN] < self.basePages[basePageIndex].TPS:
+            return True
+        return False
 
     def calculateBasePageIndex(self, baseRID):
         pageRange = 0
@@ -131,14 +181,15 @@ class PageRange:
         return pageRange
 
     def calculateTailPageIndex(self, tailRID):
-        pageRange = 0
+        pageIndex = 0
         while tailRID >= RecordsPerPageRange:
-            pageRange += PagesPerPageRange
+            pageIndex += PagesPerPageRange
             tailRID -= RecordsPerPageRange
         while tailRID >= ElementsPerPhysicalPage:
-            pageRange += 1
+            pageIndex += 1
             tailRID -= ElementsPerPhysicalPage
-        return pageRange
+        # each time we merge, our pageIndex calculations will be off by: numMerges * MergedPolicy
+        return pageIndex - self.numMerges * MergePolicy
 
     # translate RID to actual pageOffset
     def calculatePageOffset(self, RID):

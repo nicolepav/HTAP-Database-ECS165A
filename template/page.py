@@ -20,19 +20,6 @@ class Page:
         for columns in range(0, num_columns):
             self.dataColumns.append(PhysicalPage())
 
-    # Appends each record's element across all physical pages
-    def baseInsert(self, RID, record):
-        for index, dataColumn in enumerate(self.dataColumns):
-            dataColumn.appendData(record[index])
-        self.initializeRecordMetaData(RID)
-
-    # Appends meta data and record data
-    def tailInsert(self, record):
-        for index, metaColumn in enumerate(self.metaColumns):
-            metaColumn.appendData(record[index])
-        for index, dataColumn in enumerate(self.dataColumns):
-            dataColumn.appendData(record[index + MetaElements])
-
     def getRecord(self, offset):
         record = []
         for metaData in self.metaColumns:
@@ -41,12 +28,41 @@ class Page:
             record.append(dataColumn.read(offset))
         return record
 
-    def newRecordAppended(self, RID, pageOffset):
-        self.metaColumns[INDIRECTION_COLUMN].update(RID, pageOffset)
-        self.metaColumns[SCHEMA_ENCODING_COLUMN].update(1, pageOffset)
+    def getAllRecords(self):
+        records = []
+        recordsPerPage = int(ElementsPerPhysicalPage)
+        for i in range(0, recordsPerPage):
+            records.append(self.getRecord(i))
+        return records
 
     def isFull(self):
         return self.dataColumns[0].num_records == ElementsPerPhysicalPage
+
+    def invalidateRecord(self, pageOffset):
+        self.metaColumns[RID_COLUMN].update(INVALID, pageOffset)
+        return self.metaColumns[INDIRECTION_COLUMN].read(pageOffset)
+
+class BasePage(Page):
+    def __init__(self, num_columns):
+        # 1. initialize meta columns
+        self.TPS = -1
+        self.metaColumns = []
+        for i in range(0, MetaElements):
+            self.metaColumns.append(PhysicalPage())
+        # 2. initialize data columns
+        self.dataColumns = []
+        for columns in range(0, num_columns):
+            self.dataColumns.append(PhysicalPage())
+
+    # Appends each record's element across all physical pages
+    def insert(self, RID, record):
+        for index, dataColumn in enumerate(self.dataColumns):
+            dataColumn.appendData(record[index])
+        self.initializeRecordMetaData(RID)
+
+    def newRecordAppended(self, RID, pageOffset):
+        self.metaColumns[INDIRECTION_COLUMN].update(RID, pageOffset)
+        self.metaColumns[SCHEMA_ENCODING_COLUMN].update(1, pageOffset)
 
     def initializeRecordMetaData(self, baseRID):
         self.metaColumns[INDIRECTION_COLUMN].appendData(0)
@@ -54,9 +70,30 @@ class Page:
         self.metaColumns[TIMESTAMP_COLUMN].appendData(round(time.time() * 1000))
         self.metaColumns[SCHEMA_ENCODING_COLUMN].appendData(0)
 
-    def invalidateRecord(self, pageOffset):
-        self.metaColumns[RID_COLUMN].update(INVALID, pageOffset)
-        return self.metaColumns[INDIRECTION_COLUMN].read(pageOffset)
+    def mergeTailRecord(self, offset, tailRID, tailRecordData):
+        # print("Merged tail record with RID: ", tailRID)
+        if tailRID > self.TPS:
+            self.TPS = tailRID
+        for index, dataColumn in enumerate(self.dataColumns):
+            dataColumn.update(tailRecordData[index], offset)
+
+class TailPage(Page):
+    def __init__(self, num_columns):
+        # 1. initialize meta columns
+        self.metaColumns = []
+        for i in range(0, MetaElements):
+            self.metaColumns.append(PhysicalPage())
+        # 2. initialize data columns
+        self.dataColumns = []
+        for columns in range(0, num_columns):
+            self.dataColumns.append(PhysicalPage())
+
+    # Appends meta data and record data
+    def insert(self, record):
+        for index, metaColumn in enumerate(self.metaColumns):
+            metaColumn.appendData(record[index])
+        for index, dataColumn in enumerate(self.dataColumns):
+            dataColumn.appendData(record[index + MetaElements])
 
 class PhysicalPage:
 

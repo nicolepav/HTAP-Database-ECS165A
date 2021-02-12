@@ -11,6 +11,8 @@ PhysicalPageBytes = 4096
 # aka records per base page
 ElementsPerPhysicalPage = PhysicalPageBytes /  BytesPerElement
 MetaElements = 4
+# When we get 10 filled up tail pages, merge
+MergePolicy = 10
 PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = PagesPerPageRange * ElementsPerPhysicalPage
