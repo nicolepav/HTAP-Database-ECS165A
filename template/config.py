@@ -5,7 +5,8 @@
 # PhysicalPage(Element, Element, Element, ...)                                  # 512 "element"s in one "PhysicalPage"
 # BasePage(PhysicalPage, PhysicalPage, PhysicalPage, ...)                       # 9 (4 are meta filled, 5 are data filled) "PhysicalPage"s in one "BasePage"
 # PageRange(BasePage, BasePage, BasePage, ...)                                  # 16 "BasePage"s in one "PageRange"
-
+def init():
+    pass
 BytesPerElement = 8
 PhysicalPageBytes = 4096
 # aka records per base page
