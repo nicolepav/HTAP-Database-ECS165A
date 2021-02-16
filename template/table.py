@@ -53,14 +53,16 @@ class PageRange:
     # 3. Increment and insert the new cumulative record. Update base record meta data
     def update(self, baseRID, updatedRecord):
         # 1.
-        basePageIndex = self.calculatePageIndex(baseRID)
+        basePageIndex = self.calculateBasePageIndex(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
+        prev = 0
         # 2.
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
             previousTailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
             cumulativeRecord = self.spliceRecord(previousTailRecord, updatedRecord)
             cumulativeRecord[INDIRECTION_COLUMN] = previousTailRecord[RID_COLUMN]
+            prev = previousTailRecord[RID_COLUMN]
         else:
             cumulativeRecord = self.spliceRecord(baseRecord, updatedRecord)
             cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[RID_COLUMN]
@@ -69,11 +71,12 @@ class PageRange:
         cumulativeRecord[RID_COLUMN] = self.tailRID
         cumulativeRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
         cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
+
         self.tailInsert(cumulativeRecord)
         self.basePages[basePageIndex].newRecordAppended(self.tailRID, basePageOffset)
 
     def getPreviousTailRecord(self, baseIndirectionRID):
-        previousTailPageIndex = self.calculatePageIndex(baseIndirectionRID)
+        previousTailPageIndex = self.calculateTailPageIndex(baseIndirectionRID)
         previousTailPageOffset = self.calculatePageOffset(baseIndirectionRID)
         previouslyUpdatedRecord = self.tailPages[previousTailPageIndex].getRecord(previousTailPageOffset)
         return previouslyUpdatedRecord
@@ -82,13 +85,13 @@ class PageRange:
     # 1. Same as self.update step 1.
     # 2. Setup record object
     def select(self, key, baseRID):
-        basePageIndex = self.calculatePageIndex(baseRID)
+        basePageIndex = self.calculateBasePageIndex(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
         baseIndirectionRID = baseRecord[INDIRECTION_COLUMN]
         schemaBit = baseRecord[SCHEMA_ENCODING_COLUMN]
         if schemaBit == 1:
-            tailPageIndex = self.calculatePageIndex(baseIndirectionRID)
+            tailPageIndex = self.calculateTailPageIndex(baseIndirectionRID)
             tailPageOffset = self.calculatePageOffset(baseIndirectionRID)
             tailRecord = self.tailPages[tailPageIndex].getRecord(tailPageOffset)
             record = Record(tailRecord[RID_COLUMN], key, tailRecord[MetaElements:])
@@ -101,27 +104,41 @@ class PageRange:
     # 2. Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
     def delete(self, key, baseRID):
         # 1.
-        basePageIndex = self.calculatePageIndex(baseRID)
+        basePageIndex = self.calculateBasePageIndex(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
         self.basePages[basePageIndex].invalidateRecord(basePageOffset)
         # 2.
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
-            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRecord[RID_COLUMN])
+            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID)
 
-    def invalidateTailRecords(self, indirectionRID, baseRID):
-        print(indirectionRID, baseRID)
-        if indirectionRID == baseRID:
+    def invalidateTailRecords(self, indirectionRID, baseIndirectionRID):
+        if indirectionRID == baseIndirectionRID:
             return
         else:
-            pageIndex = self.calculatePageIndex(indirectionRID)
+            pageIndex = self.calculateTailPageIndex(indirectionRID)
             pageOffset = self.calculatePageOffset(indirectionRID)
             nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
-            self.invalidateTailRecords(nextRID, baseRID)
+            self.invalidateTailRecords(nextRID, baseIndirectionRID)
 
-    # Example: RID 6000, page range 5000 records, get remainder 1000, divide it by how much elements are in each page say 100, then the rid is located in base page 10 of the range
-    def calculatePageIndex(self, RID):
-        return floor((RID % (PagesPerPageRange * ElementsPerPhysicalPage)) / ElementsPerPhysicalPage)
+    def calculateBasePageIndex(self, baseRID):
+        pageRange = 0
+        while baseRID >= RecordsPerPageRange:
+            baseRID -= RecordsPerPageRange
+        while baseRID >= ElementsPerPhysicalPage:
+            pageRange += 1
+            baseRID -= ElementsPerPhysicalPage
+        return pageRange
+
+    def calculateTailPageIndex(self, tailRID):
+        pageRange = 0
+        while tailRID >= RecordsPerPageRange:
+            pageRange += PagesPerPageRange
+            tailRID -= RecordsPerPageRange
+        while tailRID >= ElementsPerPhysicalPage:
+            pageRange += 1
+            tailRID -= ElementsPerPhysicalPage
+        return pageRange
 
     # translate RID to actual pageOffset
     def calculatePageOffset(self, RID):
@@ -132,10 +149,7 @@ class PageRange:
             offset -= ElementsPerPhysicalPage
         return offset
 
-    def addPage(self, record):
-        self.basePages.appendBase(Page(record))
-        self.currentBasePage += 1
-
+    # Cumulative splicing
     def spliceRecord(self, oldRecord, updatedRecord):
         createdRecord = []
         for metaIndex in range(0, MetaElements):
@@ -146,7 +160,6 @@ class PageRange:
                 createdRecord.append(oldRecord[columnIndex + 4])
             else:
                 createdRecord.append(updatedRecord[columnIndex])
-
         return createdRecord
 
 class Table:
@@ -186,7 +199,6 @@ class Table:
         selectedPageRange = self.getPageRange(self.baseRID)
         if selectedPageRange >= len(self.page_directory):
             self.page_directory.append(PageRange())
-            print("new page range")
         # 3.
         self.page_directory[selectedPageRange].baseInsert(self.baseRID, record)
 
