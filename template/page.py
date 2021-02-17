@@ -31,7 +31,8 @@ class Page:
     def getAllRecords(self):
         records = []
         recordsPerPage = int(ElementsPerPhysicalPage)
-        for i in range(0, recordsPerPage):
+        for i in range(0, self.dataColumns[0].num_records):
+            record = self.getRecord(i)
             records.append(self.getRecord(i))
         return records
 
@@ -71,7 +72,6 @@ class BasePage(Page):
         self.metaColumns[SCHEMA_ENCODING_COLUMN].appendData(0)
 
     def mergeTailRecord(self, offset, tailRID, tailRecordData):
-        # print("Merged tail record with RID: ", tailRID)
         if tailRID > self.TPS:
             self.TPS = tailRID
         for index, dataColumn in enumerate(self.dataColumns):
@@ -100,9 +100,6 @@ class PhysicalPage:
     def __init__(self):
         self.num_records = 0
         self.data = bytearray()
-        # Element(byte, byte, byte, byte, byte, byte, byte, '\x00')
-        # 8 "bytes" in one "element" 
-        # Note that only 7 of the bytes can be written to!
 
     def has_capacity(self):
         return self.num_records < ElementsPerPhysicalPage
