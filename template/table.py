@@ -2,6 +2,7 @@ from template.page import *
 from template.index import Index
 import time
 from math import floor
+import os
 
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
@@ -162,6 +163,29 @@ class PageRange:
                 createdRecord.append(updatedRecord[columnIndex])
         return createdRecord
 
+
+    def open(self, path):
+        pass
+
+    def close(self, path):
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>"
+
+        # we want pageRange.close to store the contents of the pageRange to a pageRange directory
+
+        for index, basePage in enumerate(self.basePages):
+            # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
+            basePagesDirPath = path + "/basePage_" + str(index)
+            if not os.path.exists(basePagesDirPath):
+                os.mkdir(basePagesDirPath)
+            basePage.writeToDisk(basePagesDirPath);
+        for index, tailPage in enumerate(self.tailPages):
+            # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
+            tailPagesDirPath = path + "/tailPage_" + str(index)
+            if not os.path.exists(tailPagesDirPath):
+                os.mkdir(tailPagesDirPath)
+            tailPage.writeToDisk(tailPagesDirPath);
+        pass
+
 class Table:
     """
     :param name: string         #Table name
@@ -255,3 +279,38 @@ class Table:
 
     def getPageRange(self, baseRID):
         return floor(baseRID / RecordsPerPageRange)
+
+    # def writeToDisk(self):
+    #     f = open("db/disk_test", "wb")
+    #     # jsonString = json.dumps(self.__dict__)
+    #     # f.write(jsonString)
+    #     pickle.dump(self, f)
+    #     f.close()
+    #     pass
+
+    # def readFromDisk(self):
+    #     f = open("db/disk_test", "wb")
+    #     # f.read()
+    #     # f.close()
+    #     self = pickle.load("disk_test")
+    #     pass
+
+    def open(self, path):
+        # path look like "./ECS165/table_1"
+
+        # we want table.open to populate the table with the data in the given table directory path
+
+        pass
+
+    def close(self, path):
+        # path look like "./ECS165/table_1"
+
+        # we want table.close to store the contents of the table to a table directory
+
+        for index, pageRange in enumerate(self.page_directory):
+            # we want pageRange.close to store the contents of the pageRange to a pageRange directory
+            pageRangeDirPath = path + "/pageRange_" + str(index)
+            if not os.path.exists(pageRangeDirPath):
+                os.mkdir(pageRangeDirPath)
+            pageRange.close(pageRangeDirPath);
+        pass
