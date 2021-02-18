@@ -227,13 +227,13 @@ class PageRange:
             basePagesDirPath = path + "/basePage_" + str(index)
             if not os.path.exists(basePagesDirPath):
                 os.mkdir(basePagesDirPath)
-            basePage.writeToDisk(basePagesDirPath);
+            basePage.writeToDisk(basePagesDirPath)
         for index, tailPage in enumerate(self.tailPages):
             # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
             tailPagesDirPath = path + "/tailPage_" + str(index)
             if not os.path.exists(tailPagesDirPath):
                 os.mkdir(tailPagesDirPath)
-            tailPage.writeToDisk(tailPagesDirPath);
+            tailPage.writeToDisk(tailPagesDirPath)
         pass
 
 class Table:

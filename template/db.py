@@ -43,7 +43,7 @@ class Database():
             tableDirPath = self.path + "/table_" + table.name
             if not os.path.exists(tableDirPath):
                 os.mkdir(tableDirPath)
-            table.close(tableDirPath);
+            table.close(tableDirPath)
         pass
 
     """
