@@ -95,6 +95,23 @@ class TailPage(Page):
         for index, dataColumn in enumerate(self.dataColumns):
             dataColumn.appendData(record[index + MetaElements])
 
+
+    def writeToDisk(self, path):
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
+        
+        # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
+
+        for index, metaData in enumerate(self.metaColumns):
+            PhysicalPagePath = path + "/metadata_" + str(index)
+            metaData.writeToDisk(PhysicalPagePath)
+        for index, dataColumn in enumerate(self.dataColumns):
+            PhysicalPagePath = path + "/data_" + str(index)
+            dataColumn.writeToDisk(PhysicalPagePath)
+        pass
+
+    def readFromDisk(self, path):
+        pass
+
 class PhysicalPage:
 
     def __init__(self):
@@ -127,3 +144,13 @@ class PhysicalPage:
             raise Exception("Update Error: Record does not exist.")
         byte_location = int(location * BytesPerElement)
         self.data[(byte_location):(byte_location + BytesPerElement)] = value.to_bytes(BytesPerElement, byteorder='big')
+
+    def writeToDisk(self, path):
+        f = open(path, "w+b")
+        f.write(self.data)
+        f.close()
+
+    def readFromDisk(self, path):
+        f = open(path, "w+b")
+        self.data = f.read()
+        f.close()
