@@ -6,6 +6,7 @@ from math import floor
 import threading
 import concurrent.futures
 import os
+import json
 
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
@@ -330,20 +331,28 @@ class Table:
     def getPageRange(self, baseRID):
         return floor(baseRID / RecordsPerPageRange)
 
-    # def writeToDisk(self):
-    #     f = open("db/disk_test", "wb")
-    #     # jsonString = json.dumps(self.__dict__)
-    #     # f.write(jsonString)
-    #     pickle.dump(self, f)
-    #     f.close()
-    #     pass
+    def writeMetaJsonToDisk(self, path):
+        MetaJsonPath = path + "/Meta.json"
+        f = open(MetaJsonPath, "w")
+        metaDictionary = {
+            "name": self.name, 
+            "key": self.key,
+            "num_columns": self.num_columns,
+            "baseRID": self.baseRID,
+            "keyToRID": self.keyToRID
+            # "index": self.index # python doesn't like this
+        }
+        json.dump(metaDictionary, f, indent=4)
+        f.close()
+        pass
 
-    # def readFromDisk(self):
-    #     f = open("db/disk_test", "wb")
-    #     # f.read()
-    #     # f.close()
-    #     self = pickle.load("disk_test")
-    #     pass
+    def readMetaJsonFromDisk(self, path):
+        # reads the stored Meta.json and returns the constructed Dictionary
+        MetaJsonPath = path + "/Meta.json"
+        f = open(MetaJsonPath, "r")
+        metaDictionary = json.load(f)
+        f.close()
+        return metaDictionary
 
     def open(self, path):
         # path look like "./ECS165/table_1"
@@ -354,6 +363,8 @@ class Table:
 
     def close(self, path):
         # path look like "./ECS165/table_1"
+        
+        self.writeMetaJsonToDisk(path);
 
         # we want table.close to store the contents of the table to a table directory
 

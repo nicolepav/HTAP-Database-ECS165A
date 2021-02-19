@@ -19,6 +19,11 @@ class Page:
         self.dataColumns = []
         for columns in range(0, num_columns):
             self.dataColumns.append(PhysicalPage())
+        self.numrecords = 0
+
+        # still need to implement this logic
+        self.dirty = False
+        self.pinned = 0
 
     def getRecord(self, offset):
         record = []
@@ -31,21 +36,22 @@ class Page:
     def getAllRecords(self):
         records = []
         recordsPerPage = int(ElementsPerPhysicalPage)
-        for i in range(0, self.dataColumns[0].num_records):
+        for i in range(0, self.num_records):
             record = self.getRecord(i)
             records.append(self.getRecord(i))
         return records
 
     def isFull(self):
-        return self.dataColumns[0].num_records == ElementsPerPhysicalPage
+        return self.num_records == ElementsPerPhysicalPage
 
     def invalidateRecord(self, pageOffset):
+        self.dirty = True
         self.metaColumns[RID_COLUMN].update(INVALID, pageOffset)
         return self.metaColumns[INDIRECTION_COLUMN].read(pageOffset)
 
     def writeToDisk(self, path):
         # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
-        # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
+        # we want (base/tail)Page.writeToDisk to store the contents of the basePage to a Page directory
 
         for index, metaData in enumerate(self.metaColumns):
             PhysicalPagePath = path + "/metadata_" + str(index)
@@ -55,7 +61,16 @@ class Page:
             dataColumn.writeToDisk(PhysicalPagePath)
         pass
 
-    def readFromDisk(self, path):
+    def readFromDisk(self, path, index):
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
+
+
+        # PhysicalPagePath = path + "/metadata_" + str(index)
+        # metaData.readFromDisk(PhysicalPagePath)
+
+        # PhysicalPagePath = path + "/data_" + str(index)
+        # dataColumn.readFromDisk(PhysicalPagePath)
+
         pass
 
 class BasePage(Page):
@@ -69,9 +84,16 @@ class BasePage(Page):
         self.dataColumns = []
         for columns in range(0, num_columns):
             self.dataColumns.append(PhysicalPage())
+        self.num_records = 0
+
+        # still need to implement this logic (what about for merge?)
+        self.dirty = False
+        self.pinned = 0
 
     # Appends each record's element across all physical pages
     def insert(self, RID, record):
+        self.dirty = True
+        self.num_records += 1
         for index, dataColumn in enumerate(self.dataColumns):
             dataColumn.appendData(record[index])
         self.initializeRecordMetaData(RID)
@@ -87,6 +109,7 @@ class BasePage(Page):
         self.metaColumns[SCHEMA_ENCODING_COLUMN].appendData(0)
 
     def mergeTailRecord(self, offset, tailRID, tailRecordData):
+        # need to figure out what to do about disk management here (should we delete old tail page files and replace with the new merged file?)
         if tailRID > self.TPS:
             self.TPS = tailRID
         for index, dataColumn in enumerate(self.dataColumns):
@@ -102,9 +125,16 @@ class TailPage(Page):
         self.dataColumns = []
         for columns in range(0, num_columns):
             self.dataColumns.append(PhysicalPage())
+        self.num_records = 0
+
+        # still need to implement this logic
+        self.dirty = False
+        self.pinned = 0
 
     # Appends meta data and record data
     def insert(self, record):
+        self.dirty = True
+        self.num_records += 1
         for index, metaColumn in enumerate(self.metaColumns):
             metaColumn.appendData(record[index])
         for index, dataColumn in enumerate(self.dataColumns):
@@ -113,17 +143,10 @@ class TailPage(Page):
 class PhysicalPage:
 
     def __init__(self):
-        self.num_records = 0
         self.data = bytearray()
 
-    def has_capacity(self):
-        return self.num_records < ElementsPerPhysicalPage
-
     def appendData(self, value):
-        # if a physical page has capacity, append and element to the Physical Page
-        if not self.has_capacity():
-            raise Exception("Insert Error: Physical Page is already full.")
-        self.num_records += 1
+        # append and element to the Physical Page (isFull() checks if there is capacity before calling)
         self.data += value.to_bytes(BytesPerElement, byteorder='big')
 
     def read(self, location):
