@@ -121,14 +121,14 @@ class Bufferpool():
 
         kicked = self.bufferpool.pop(0)
         
-        if (kicked.pinned > 0):
-            # throw it to the back of the bufferpool so next object can be kicked
+        # if (kicked.pinned > 0):
+        #     # throw it to the back of the bufferpool so next object can be kicked
 
-        if (kicked.dirty == True):
-            # write the dirty page to disk
-        # when not dirty, 
+        # if (kicked.dirty == True):
+        #     # write the dirty page to disk
+        # # when not dirty, 
 
-        pass
+        # pass
 
 
 

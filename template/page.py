@@ -53,12 +53,16 @@ class Page:
         # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
         # we want (base/tail)Page.writeToDisk to store the contents of the basePage to a Page directory
 
-        for index, metaData in enumerate(self.metaColumns):
+        index = 0
+
+        for metaData in self.metaColumns:
             PhysicalPagePath = path + "/metadata_" + str(index)
             metaData.writeToDisk(PhysicalPagePath)
-        for index, dataColumn in enumerate(self.dataColumns):
+            index += 1
+        for dataColumn in self.dataColumns:
             PhysicalPagePath = path + "/data_" + str(index)
             dataColumn.writeToDisk(PhysicalPagePath)
+            index += 1
         pass
 
     def readFromDisk(self, path, index):

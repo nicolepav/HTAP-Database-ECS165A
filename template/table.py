@@ -225,14 +225,14 @@ class PageRange:
 
         index = 0
 
-        for basePage in enumerate(self.basePages):
+        for basePage in self.basePages:
             # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
             basePagesDirPath = path + "/basePage_" + str(index)
             if not os.path.exists(basePagesDirPath):
                 os.mkdir(basePagesDirPath)
             basePage.writeToDisk(basePagesDirPath)
             index += 1
-        for tailPage in enumerate(self.tailPages):
+        for tailPage in self.tailPages:
             # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
             tailPagesDirPath = path + "/tailPage_" + str(index)
             if not os.path.exists(tailPagesDirPath):
