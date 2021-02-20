@@ -8,20 +8,17 @@ class Index:
 
     def __init__(self, table):
         # One index for each table. All our empty initially.
-        self.indices = []
-        for x in range(table.num_columns):
-            self.indices.append(BST())
-        print(self.indices)
+        self.indices = [None] *  table.num_columns
 
 
 
     """
     # returns the location of all records with the given value on column "column"
     """
-
+    #TODO Finish this
     def locate(self, column, value):
         self.indices[column-1].clearReturningData()
-        self.indices[column-1].returnRangeData(self.indices[column-1].cur_node, value, value)
+        self.indices[column-1].returnRangeData(self.indices[column-1].root, value, value)
         returningRecords = self.indices[column-1].returnData
         #return the location
         pass
@@ -31,25 +28,52 @@ class Index:
     """
 
     def locate_range(self, begin, end, column):
-        self.indices[column-1].clearReturningData()
-        self.indices[column-1].returnRangeData(self.indices[column-1].cur_node, begin, end)
+        self.indices[column-1].clearReturnData()
+        self.indices[column-1].returnRangeData(self.indices[column-1].root, begin, end)
         returningRecords = self.indices[column-1].returnData
-        #TODO get record data and return rid
-        pass
+        return returningRecords
 
     """
     # optional: Create index on specific column
     """
+    #record data = array of pageranges
+    #column_number assumes the user passes the number of the table column from their view
+    def create_index(self, column_number, pageRanges):
+        self.indices[column_number-1] = BST()
+        for pageRange in pageRanges:
+            for basePages in pageRange.basePages:
+                basePageRecords = basePages.getAllRecords()
+                for record in basePageRecords:
+                    # if record has not been invalidated
+                    # TODO: Update this to whatever the invalidation signifier is when issue resolved
+                    if record[0] != 0:
 
-    def create_index(self, column_number):
-        print(self.table)
-        pass
+                        # if schema says record has tail pages
+                        if record[3] == 1:      
+                            # tail logic using indirection column to access tail page
+                            tailRecord = pageRange.getPreviousTailRecord(record[0])
+                            self.indices[column_number-1].insert(tailRecord[column_number + 3], tailRecord)
+                            print("Tail record used") 
+                        else:
+                            # use data that is here in base page
+                            self.indices[column_number-1].insert(record[column_number + 3], record)
+                            print("Base record used")
+            
+                    else: 
+                        pass
+                        # the record was invalidated
+                        
+        # M M M M X X X X
+        # 0 1 2 3 4 5 6 7
+        #         1 2 3 4
+
 
     """
     # optional: Drop index of specific column
     """
 
     def drop_index(self, column_number):
+        self.indices[column_number-1] = None
         pass
 
 
@@ -57,7 +81,7 @@ class Index:
 class Node:
     def __init__(self, data = None, record = None):
         self.data = data
-        self.record = record
+        self.record = record #pointer
         self.left = None
         self.right = None
 
@@ -106,7 +130,7 @@ class BST:
  
     # If root's data lies in range, then prints root's data
         if begin <= cur_node.data and end >= cur_node.data:
-            self.returnData.append(cur_node.data)
+            self.returnData.append(cur_node.record[0])
  
     # If root.data is smaller than k2, then only we can get
     # o/p keys in right subtree

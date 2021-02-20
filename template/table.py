@@ -289,6 +289,8 @@ class Table:
 
     # m1_tester expects a list of record objects, but we should only be passing back certain columns
     def select(self, key, column, query_columns):
+        self.index.create_index(2, self.page_directory)
+        self.index.locate_range(0,10, 2)
         if key not in self.keyToRID:
             print("No RID found for this key")
             return False

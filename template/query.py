@@ -37,6 +37,7 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+        # TODO: change this logic to depend on indicies (and same for downwards)
         self.table.insert(columns)
 
     """
@@ -48,6 +49,7 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, key, column, query_columns):
+        # TODO: change this logic to depend on indicies
         return self.table.select(key, column, query_columns)
 
     """

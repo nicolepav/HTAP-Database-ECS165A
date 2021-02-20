@@ -15,6 +15,7 @@ tree.insert(2, [1,3,4])
 tree.insert(4, [1,3,4])
 tree.insert(3, [1,3,4])
 
+print(tree.print_tree("preorder"))
 print(tree.returnRangeData(tree.root, 3, 4))
 print(tree.returnData)
 
