@@ -1,5 +1,6 @@
 from template.table import Table
 import os
+import json
 
 class Database():
 
@@ -20,7 +21,17 @@ class Database():
         # for each table directory in the database directory,
         for tableDir in [dI for dI in os.listdir(path) if os.path.isdir(os.path.join(path,dI))]:
             tableDirPath = self.path + '/' + tableDir
+
+            # reads the stored Meta.json and returns the constructed Dictionary
+            MetaJsonPath = tableDirPath + "/Meta.json"
+            f = open(MetaJsonPath, "r")
+            metaDictionary = json.load(f)
+            f.close()
+            # metaDictionary is a dictionary filled with the table's meta info
+
+
             print("Table Directory: " + tableDirPath)
+            print("MetaJson File:   " + MetaJsonPath)
             # open the table directory, 
                 # can't use the table.open without first having a table object
                 # table = Table()

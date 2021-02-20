@@ -346,16 +346,18 @@ class Table:
         f.close()
         pass
 
-    def readMetaJsonFromDisk(self, path):
-        # reads the stored Meta.json and returns the constructed Dictionary
-        MetaJsonPath = path + "/Meta.json"
-        f = open(MetaJsonPath, "r")
-        metaDictionary = json.load(f)
-        f.close()
-        return metaDictionary
+    # def readMetaJsonFromDisk(self, path):
+    #     # reads the stored Meta.json and returns the constructed Dictionary
+    #     MetaJsonPath = path + "/Meta.json"
+    #     f = open(MetaJsonPath, "r")
+    #     metaDictionary = json.load(f)
+    #     f.close()
+    #     return metaDictionary
 
     def open(self, path):
         # path look like "./ECS165/table_1"
+
+        # metaDictionary = self.readMetaJsonFromDisk(path)
 
         # we want table.open to populate the table with the data in the given table directory path
 
@@ -364,7 +366,7 @@ class Table:
     def close(self, path):
         # path look like "./ECS165/table_1"
         
-        self.writeMetaJsonToDisk(path);
+        self.writeMetaJsonToDisk(path)
 
         # we want table.close to store the contents of the table to a table directory
 
@@ -373,5 +375,5 @@ class Table:
             pageRangeDirPath = path + "/pageRange_" + str(index)
             if not os.path.exists(pageRangeDirPath):
                 os.mkdir(pageRangeDirPath)
-            pageRange.close(pageRangeDirPath);
+            pageRange.close(pageRangeDirPath)
         pass
