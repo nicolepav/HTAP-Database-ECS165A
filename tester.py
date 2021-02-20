@@ -12,10 +12,10 @@ tree.insert(78, [1,3,4])
 tree.insert(3, [1,3,4])
 tree.insert(9, [1,3,4])
 tree.insert(2, [1,3,4])
-tree.insert(6, [1,3,4])
+tree.insert(4, [1,3,4])
 tree.insert(3, [1,3,4])
 
-print(tree.returnRangeData(tree.root, 3, 10))
+print(tree.returnRangeData(tree.root, 3, 4))
 print(tree.returnData)
 
 tree.clearReturnData()

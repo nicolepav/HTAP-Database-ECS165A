@@ -7,18 +7,23 @@ A data strucutre holding indices for various columns of a table. Key column shou
 class Index:
 
     def __init__(self, table):
-        # One tree for each column. All empty initially.
+        # One index for each table. All our empty initially.
         self.indices = []
         for x in range(table.num_columns):
             self.indices.append(BST())
         print(self.indices)
-        pass
+
+
 
     """
     # returns the location of all records with the given value on column "column"
     """
 
     def locate(self, column, value):
+        self.indices[column-1].clearReturningData()
+        self.indices[column-1].returnRangeData(self.indices[column-1].cur_node, value, value)
+        returningRecords = self.indices[column-1].returnData
+        #return the location
         pass
 
     """
@@ -26,6 +31,10 @@ class Index:
     """
 
     def locate_range(self, begin, end, column):
+        self.indices[column-1].clearReturningData()
+        self.indices[column-1].returnRangeData(self.indices[column-1].cur_node, begin, end)
+        returningRecords = self.indices[column-1].returnData
+        #TODO get record data and return rid
         pass
 
     """
@@ -33,7 +42,7 @@ class Index:
     """
 
     def create_index(self, column_number):
-        
+        print(self.table)
         pass
 
     """
@@ -81,11 +90,9 @@ class BST:
             else:
                 self._insert(data, record, cur_node.right)
 
-    def findLocation(self, value):
-        
-        pass
-
+    # TODO change append data to record when data insertion is figured out
     def returnRangeData(self, cur_node, begin, end):
+        
     # Base Case Start at root
         
         if cur_node is None:
@@ -103,7 +110,7 @@ class BST:
  
     # If root.data is smaller than k2, then only we can get
     # o/p keys in right subtree
-        if end > cur_node.data:
+        if end >= cur_node.data:
             self.returnRangeData(cur_node.right, begin, end)
 
     def clearReturnData(self):
@@ -122,3 +129,5 @@ class BST:
             traversal = self.preorder_print(start.left, traversal)
             traversal = self.preorder_print(start.right, traversal)
         return traversal
+
+
