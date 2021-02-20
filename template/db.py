@@ -1,4 +1,5 @@
 from template.table import Table
+from template.page import *
 import os
 import json
 
@@ -110,25 +111,36 @@ class Bufferpool():
             
         #add the new page here
 
+        bufferpool.append(page)
+
         # if new page is added, return pointer to that page? so it can be used?
 
         pass
 
     #need a way to perform operation on that page in the bufferpool
     
-    def kick(self, ):
+    def kick(self):
         # called when we need to kick a page
 
         kicked = self.bufferpool.pop(0)
         
-        # if (kicked.pinned > 0):
-        #     # throw it to the back of the bufferpool so next object can be kicked
+        while (kicked.pinned > 0):
+            # throw it to the back of the bufferpool so next object can be kicked
+            bufferpool.append(kicked)
+            kicked = self.bufferpool.pop(0)
 
-        # if (kicked.dirty == True):
-        #     # write the dirty page to disk
-        # # when not dirty, 
+        if (kicked.dirty == True):
+            # write the dirty page to disk
 
-        # pass
+            # get the correct path of where we need to write to
+
+            # path = 
+
+            # path should look like: "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
+            kicked.writeToDisk(path)
+        # when not dirty, we don't have to worry about writing it back to the disk
+
+        pass
 
 
 
