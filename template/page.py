@@ -62,7 +62,7 @@ class Page:
         pass
 
     def readFromDisk(self, path, index):
-        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>/"
 
 
         # PhysicalPagePath = path + "/metadata_" + str(index)

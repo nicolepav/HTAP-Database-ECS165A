@@ -17,3 +17,5 @@ MergePolicy = 10
 PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = PagesPerPageRange * ElementsPerPhysicalPage
+
+BufferpoolSize = 16

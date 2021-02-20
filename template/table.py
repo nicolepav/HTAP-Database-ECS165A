@@ -223,18 +223,22 @@ class PageRange:
 
         # we want pageRange.close to store the contents of the pageRange to a pageRange directory
 
-        for index, basePage in enumerate(self.basePages):
+        index = 0
+
+        for basePage in enumerate(self.basePages):
             # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
             basePagesDirPath = path + "/basePage_" + str(index)
             if not os.path.exists(basePagesDirPath):
                 os.mkdir(basePagesDirPath)
             basePage.writeToDisk(basePagesDirPath)
-        for index, tailPage in enumerate(self.tailPages):
+            index += 1
+        for tailPage in enumerate(self.tailPages):
             # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
             tailPagesDirPath = path + "/tailPage_" + str(index)
             if not os.path.exists(tailPagesDirPath):
                 os.mkdir(tailPagesDirPath)
             tailPage.writeToDisk(tailPagesDirPath)
+            index += 1
         pass
 
 class Table:
@@ -332,6 +336,8 @@ class Table:
         return floor(baseRID / RecordsPerPageRange)
 
     def writeMetaJsonToDisk(self, path):
+        # path look like "./ECS165/table_1"
+        
         MetaJsonPath = path + "/Meta.json"
         f = open(MetaJsonPath, "w")
         metaDictionary = {
@@ -339,8 +345,9 @@ class Table:
             "key": self.key,
             "num_columns": self.num_columns,
             "baseRID": self.baseRID,
-            "keyToRID": self.keyToRID
-            # "index": self.index # python doesn't like this
+            "keyToRID": self.keyToRID,
+            # "indexTo": self.index # python doesn't like this
+            # TypeError: Object of type Index is not JSON serializable
         }
         json.dump(metaDictionary, f, indent=4)
         f.close()
@@ -377,3 +384,5 @@ class Table:
                 os.mkdir(pageRangeDirPath)
             pageRange.close(pageRangeDirPath)
         pass
+
+
