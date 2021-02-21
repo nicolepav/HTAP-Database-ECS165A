@@ -261,15 +261,15 @@ class Table:
     :variable baseRID           #The current RID used to store a new base record
     :variable tailRID           #The current RID used for updating a base record, used for tail record
     """
-    def __init__(self, name, num_columns, key):
+    def __init__(self, name, num_columns, key, baseRID = -1, keyToRID = {}):
         self.name = name
         self.key = key
         self.num_columns = num_columns
         # add page range to page directory
         self.page_directory = [PageRange()]
         # map key to RID for query operations
-        self.keyToRID = {}
-        self.baseRID = -1
+        self.baseRID = baseRID
+        self.keyToRID = keyToRID
         self.index = Index(self)
         pass
 
@@ -335,13 +335,33 @@ class Table:
         #2 check if it's a base page? ie what if you called insert after update? && else if not bufferpool[-1].isFull, add record to page
         #3 else create new page, append record
 
+
+
+        self.baseRID += 1
+        key = record[0]
+        self.keyToRID[key] = self.baseRID
+        #1
+        if len(bufferpool) == 0:
+            # create new page and add record
+            # is this needed? (Don't we do ths check in the add_insert?)
+        # #2
+        # if (): 
+        
+        # #3
+        # else:
+            # create new page, append record
+            newpage = BasePage(len(record))
+            newpage.insert(self.baseRID, record)
+            bufferpool.add_insert(newpage)
+
+
         #page creation
         #normal information
         #also need the path to write the page
 
         #MUST STORE PATH TO LATEST BASE PAGE, so we can resume inserting whereever needeed
         #every time a new base page is added
-        PathToLatestBasePage = basePage.path
+        PathToLatestBasePage = newpage.path
 
         pass
 
@@ -420,23 +440,6 @@ class Table:
         f.close()
         pass
 
-    # def readMetaJsonFromDisk(self, path):
-    #     # reads the stored Meta.json and returns the constructed Dictionary
-    #     MetaJsonPath = path + "/Meta.json"
-    #     f = open(MetaJsonPath, "r")
-    #     metaDictionary = json.load(f)
-    #     f.close()
-    #     return metaDictionary
-
-    def open(self, path):
-        # path look like "./ECS165/table_1"
-
-        # metaDictionary = self.readMetaJsonFromDisk(path)
-
-        # we want table.open to populate the table with the data in the given table directory path
-
-        pass
-
     def close(self, path):
         # path look like "./ECS165/table_1"
         
@@ -444,6 +447,7 @@ class Table:
 
         # we want table.close to store the contents of the table to a table directory
 
+        #if we change how pagedirectory wroks, will need to update this logic
         for index, pageRange in enumerate(self.page_directory):
             # we want pageRange.close to store the contents of the pageRange to a pageRange directory
             pageRangeDirPath = path + "/pageRange_" + str(index)

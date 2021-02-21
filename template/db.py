@@ -10,7 +10,6 @@ class Database():
     def __init__(self, path='./ECS165'):
         self.tables = []
         self.path = path
-        global bufferpool = BufferPool()
         pass
 
     def open(self, path):
@@ -65,31 +64,30 @@ class Database():
         # search for the table at the self.path on the disk
 
         # for each table directory in the database directory,
-        for tableDir in [dI for dI in os.listdir(path) if os.path.isdir(os.path.join(path,dI))]:
+        for tableDir in [dI for dI in os.listdir(self.path) if os.path.isdir(os.path.join(self.path,dI))]:
             tableDirPath = self.path + '/' + tableDir
 
             if name in tableDir:
-
-            if tableName == name:
                 # get the table object
 
-                    # # reads the stored Meta.json and returns the constructed Dictionary
-                    # MetaJsonPath = tableDirPath + "/Meta.json"
-                    # f = open(MetaJsonPath, "r")
-                    # metaDictionary = json.load(f)
-                    # json.decoder.JSONDecodeError: Expecting value: line 1008 column 16 (char 25009)
-                    # f.close()
-                    # metaDictionary is a dictionary filled with the table's meta info
+                # reads the stored Meta.json and returns the constructed Dictionary
+                MetaJsonPath = tableDirPath + "/Meta.json"
+                f = open(MetaJsonPath, "r")
+                metaDictionary = json.load(f)
+                # json.decoder.JSONDecodeError: Expecting value: line 1008 column 16 (char 25009)
+                f.close()
+                # metaDictionary is a dictionary filled with the table's meta info
 
-
-                    # print("Table Directory: " + tableDirPath)
-                    # print("MetaJson File:   " + MetaJsonPath)
-                    # open the table directory, 
-                        # can't use the table.open without first having a table object
-                        # table = Table()
-                        # we want table.open to populate the table with the data in the Table's Directory
-                        # table.open(tableDirPath);
-                    # then load the table directory to self.tables
-                        # self.tables.append(table)
+                # open the table directory, 
+                    # can't use the table.open without first having a table object
+                table = Table(metaDictionary["name"],
+                    metaDictionary["num_columns"],
+                    metaDictionary["key"],
+                    metaDictionary["baseRID"],
+                    metaDictionary["keyToRID"]
+                )
+                # we want table.open to populate the table with the data in the Table's Directory
+                # then load the table directory to self.tables
+                self.tables.append(table)
 
                 return table

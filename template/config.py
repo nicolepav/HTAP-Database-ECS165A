@@ -20,13 +20,14 @@ RecordsPerPageRange = PagesPerPageRange * ElementsPerPhysicalPage
 
 BufferpoolSize = 16
 
-bufferpool = BufferPool()
-PathToLatestBasePage = ""
-
+# global must be defined after class definition (its just under it)
+# access the global Bufferpool by using "BP"
+# Example: print(len(BP.bufferpool))
 
 class Bufferpool():
     
     def __init__(self,):
+        # global bufferpool
         self.bufferpool = []
         #initialize queue
         #bufferpool.pop(0)
@@ -41,15 +42,15 @@ class Bufferpool():
         #check if page if page is already in bufferpool
         if page in self.bufferpool:
             #move the page to the back of the q
-            used = self.bufferpool.pop(0)
-            self.bufferpool.append(used)
+            self.bufferpool.remove(page)
+            self.bufferpool.append(page)
             return self.bufferpool.index(page)
 
         if (self.BufferpoolIsFull()):
             self.kick()
             
         #add the new page here
-        bufferpool.append(page)
+        self.bufferpool.append(page)
 
         #return the index of the added page ie. the back
         return len(self.bufferpool) - 1
@@ -63,7 +64,7 @@ class Bufferpool():
         
         if (kicked.pinned > 0):
             # throw it to the back of the bufferpool so next object can be kicked
-            bufferpool.append(kicked)
+            self.bufferpool.append(kicked)
             kicked = self.bufferpool.pop(0)
             return
 
@@ -105,5 +106,6 @@ class Bufferpool():
 
     '''
 
-
-
+global BP
+BP = Bufferpool()
+PathToLatestBasePage = ""
