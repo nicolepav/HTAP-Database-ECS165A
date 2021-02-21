@@ -1,4 +1,5 @@
 from template.page import *
+from template.config import *
 from template.index import Index
 import time
 import copy
@@ -229,15 +230,25 @@ class PageRange:
             # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
             basePagesDirPath = path + "/basePage_" + str(index)
             if not os.path.exists(basePagesDirPath):
+                # the page doesn't exist
                 os.mkdir(basePagesDirPath)
-            basePage.writeToDisk(basePagesDirPath)
+                basePage.writeToDisk(basePagesDirPath)
+            else:
+                # the page already exists and it is dirty, then we can write it
+                if (basePage.dirty):
+                    basePage.writeToDisk(basePagesDirPath)
             index += 1
         for tailPage in self.tailPages:
             # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
             tailPagesDirPath = path + "/tailPage_" + str(index)
             if not os.path.exists(tailPagesDirPath):
+                # the page doesn't exist
                 os.mkdir(tailPagesDirPath)
-            tailPage.writeToDisk(tailPagesDirPath)
+                tailPage.writeToDisk(tailPagesDirPath)
+            else:
+                # the page already exists and it is dirty, then we can write it
+                if (tailPage.dirty):
+                    tailPage.writeToDisk(tailPagesDirPath)
             index += 1
         pass
 
@@ -271,15 +282,71 @@ class Table:
     # 3. calls insert for selected pageRange
     def insert(self, record):
         # 1.
-        self.baseRID += 1
-        key = record[0]
-        self.keyToRID[key] = self.baseRID
-        # 2.
-        selectedPageRange = self.getPageRange(self.baseRID)
-        if selectedPageRange >= len(self.page_directory):
-            self.page_directory.append(PageRange())
-        # 3.
-        self.page_directory[selectedPageRange].baseInsert(self.baseRID, record)
+        # self.baseRID += 1
+        # key = record[0]
+        # self.keyToRID[key] = self.baseRID
+        # # 2.
+        # # pagerange must be a field for the page, DONE
+        # # pagerange is now the folder path where the page will be written
+        # # calculate the page range path, and then set the field
+
+        # selectedPageRange = self.getPageRange(self.baseRID)
+
+
+
+        # for PageRangeDir in [dI for dI in os.listdir(path) if os.path.isdir(os.path.join(path,dI))]:
+        #     PageRangeDirPath = self.path + '/' + PageRangeDir
+
+        #     # index of page range is: PageRangeDir
+
+        # # if 
+        # basePage_exists = False
+        # last_basePage
+
+        # for PageDir in [dI for dI in os.listdir(PageRangeDirPath) if os.path.isdir(os.path.join(PageRangeDirPath,dI))]:
+        #     PageDirPath = self.path + '/' + PageDir
+        #     last_basePage = PageDir
+        #     if "basePage" in PageDir:
+        #         basePage_exists = True
+        
+        # if not basePage_exists or self.basePages[-1].isFull():
+        #     newPage = BasePage(len(recordData))
+
+
+            
+        #     basePagesDirPath = path + "/basePage_" + str(index)
+
+        #     newPage.path = PageDirPath
+
+        #     newPage.insert(RID, recordData)
+        #     self.basePages.append(newPage)
+        # # 2.
+        # else:
+        #     self.basePages[-1].insert(RID, recordData)
+
+        
+        # # 3. instead of inserting to the page range, we insert to the bufferpool
+        # self.page_directory[selectedPageRange].baseInsert(self.baseRID, record)
+
+        # bufferpool.add_insert(page)
+        # #insert record into page
+
+        #1 if len(bufferpool) == 0: create page add record
+        #2 check if it's a base page? ie what if you called insert after update? && else if not bufferpool[-1].isFull, add record to page
+        #3 else create new page, append record
+
+        #page creation
+        #normal information
+        #also need the path to write the page
+
+        #MUST STORE PATH TO LATEST BASE PAGE, so we can resume inserting whereever needeed
+        #every time a new base page is added
+        PathToLatestBasePage = basePage.path
+
+        pass
+
+
+
 
     # Similar to insert steps but calls update at end and doesn't check page range (TODO can a page range contain any number of tail pages?)
     def update(self, key, record):

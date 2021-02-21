@@ -22,6 +22,8 @@ class Page:
         self.numrecords = 0
 
         # still need to implement this logic
+        self.PageRange
+        self.path
         self.dirty = False
         self.pinned = 0
 
@@ -55,6 +57,8 @@ class Page:
 
         index = 0
 
+        print("writing page to disk: " + path)
+
         for metaData in self.metaColumns:
             PhysicalPagePath = path + "/metadata_" + str(index)
             metaData.writeToDisk(PhysicalPagePath)
@@ -66,7 +70,7 @@ class Page:
         pass
 
     def readFromDisk(self, path, index):
-        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>/"
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
 
 
         # PhysicalPagePath = path + "/metadata_" + str(index)
@@ -91,6 +95,8 @@ class BasePage(Page):
         self.num_records = 0
 
         # still need to implement this logic (what about for merge?)
+        self.PageRange
+        self.path
         self.dirty = False
         self.pinned = 0
 
@@ -132,6 +138,8 @@ class TailPage(Page):
         self.num_records = 0
 
         # still need to implement this logic
+        self.PageRange
+        self.path
         self.dirty = False
         self.pinned = 0
 
