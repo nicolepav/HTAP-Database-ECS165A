@@ -261,13 +261,14 @@ class Table:
     :variable baseRID           #The current RID used to store a new base record
     :variable tailRID           #The current RID used for updating a base record, used for tail record
     """
-    def __init__(self, name, num_columns, key, baseRID = -1, keyToRID = {}):
+    def __init__(self, name, num_columns, key, path = "./", baseRID = -1, keyToRID = {}):
         self.name = name
         self.key = key
         self.num_columns = num_columns
         # add page range to page directory
         self.page_directory = [PageRange()]
         # map key to RID for query operations
+        self.path = path
         self.baseRID = baseRID
         self.keyToRID = keyToRID
         self.index = Index(self)
@@ -335,17 +336,20 @@ class Table:
         #2 check if it's a base page? ie what if you called insert after update? && else if not bufferpool[-1].isFull, add record to page
         #3 else create new page, append record
 
-
-
+        print("here1")
+        print("here2")
         self.baseRID += 1
         key = record[0]
         self.keyToRID[key] = self.baseRID
+        selectedPageRange = self.getPageRange(self.baseRID)
+        
         #1
         if len(BP.bufferpool) == 0:
             # create new page and add record
-            newpage = BasePage(len(record))
+            newPageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+            newpage = BasePage(len(record), selectedPageRange, newPageRangePath) #here we should also pass the pageRange(default = 0) and the path(default = "./")
             newpage.insert(self.baseRID, record)
-            BP.bufferpool.add_insert(newpage)
+            BP.add_insert(newpage)
             # is this needed? (Don't we do ths check in the add_insert?)
         #2
         # here we know bufferpool is not empty
@@ -358,7 +362,7 @@ class Table:
             # create new page, append record
             newpage = BasePage(len(record))
             newpage.insert(self.baseRID, record)
-            BP.bufferpool.add_insert(newpage)
+            BP.add_insert(newpage)
 
 
         #page creation

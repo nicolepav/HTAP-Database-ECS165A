@@ -10,7 +10,7 @@ INVALID = 0
 # aka base/tail pages
 class Page:
 
-    def __init__(self, num_columns):
+    def __init__(self, num_columns, PageRange=0, path="./"):
         # 1. initialize meta columns
         self.metaColumns = []
         for i in range(0, MetaElements):
@@ -22,8 +22,8 @@ class Page:
         self.numrecords = 0
 
         # still need to implement this logic
-        self.PageRange
-        self.path
+        self.PageRange = PageRange
+        self.path = path
         self.dirty = False
         self.pinned = 0
 
@@ -82,7 +82,7 @@ class Page:
         pass
 
 class BasePage(Page):
-    def __init__(self, num_columns):
+    def __init__(self, num_columns, PageRange=0, path="./"):
         # 1. initialize meta columns
         self.TPS = -1
         self.metaColumns = []
@@ -95,8 +95,8 @@ class BasePage(Page):
         self.num_records = 0
 
         # still need to implement this logic (what about for merge?)
-        self.PageRange
-        self.path
+        self.PageRange = PageRange
+        self.path = path
         self.dirty = False
         self.pinned = 0
 
@@ -126,7 +126,7 @@ class BasePage(Page):
             dataColumn.update(tailRecordData[index], offset)
 
 class TailPage(Page):
-    def __init__(self, num_columns):
+    def __init__(self, num_columns, PageRange=0, path="./"):
         # 1. initialize meta columns
         self.metaColumns = []
         for i in range(0, MetaElements):
@@ -138,8 +138,8 @@ class TailPage(Page):
         self.num_records = 0
 
         # still need to implement this logic
-        self.PageRange
-        self.path
+        self.PageRange = PageRange
+        self.path = path
         self.dirty = False
         self.pinned = 0
 

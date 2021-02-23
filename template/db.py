@@ -39,7 +39,8 @@ class Database():
     :param key: int             #Index of table key in columns
     """
     def create_table(self, name, num_columns, key):
-        table = Table(name, num_columns, key)
+        Tablepath = self.path + "/table_" + name
+        table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
         return table
 
@@ -83,6 +84,7 @@ class Database():
                 table = Table(metaDictionary["name"],
                     metaDictionary["num_columns"],
                     metaDictionary["key"],
+                    tableDirPath,
                     metaDictionary["baseRID"],
                     metaDictionary["keyToRID"]
                 )
