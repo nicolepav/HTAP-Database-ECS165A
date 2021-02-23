@@ -341,18 +341,24 @@ class Table:
         key = record[0]
         self.keyToRID[key] = self.baseRID
         #1
-        if len(bufferpool) == 0:
+        if len(BP.bufferpool) == 0:
             # create new page and add record
+            newpage = BasePage(len(record))
+            newpage.insert(self.baseRID, record)
+            BP.bufferpool.add_insert(newpage)
             # is this needed? (Don't we do ths check in the add_insert?)
-        # #2
-        # if (): 
+        #2
+        # here we know bufferpool is not empty
+        if (1): 
+            print("here")
+
         
-        # #3
-        # else:
+        #3
+        else:
             # create new page, append record
             newpage = BasePage(len(record))
             newpage.insert(self.baseRID, record)
-            bufferpool.add_insert(newpage)
+            BP.bufferpool.add_insert(newpage)
 
 
         #page creation
