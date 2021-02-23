@@ -41,6 +41,16 @@ class Bufferpool():
         return len(self.bufferpool) >= BufferpoolSize
         
     def add_insert(self, page):
+
+        #should only need to get passed a RID
+
+        # also need a book keeping mechanism for the bufferpool:
+        # -RID is a page number and a slot within a page!!!!!
+        # -this will allow us to ask the bufferpool if it has a given page, when we just give it a RID
+        # -so, give this structure a RID, it will know what page id belongs to this RID, then it will check its bufferpool to see if it has that page id, (if not, go get it), then return that page
+
+
+
         #check if page if page is already in bufferpool
         if page in self.bufferpool:
             #move the page to the back of the q
@@ -53,6 +63,7 @@ class Bufferpool():
             
         #add the new page here
         self.bufferpool.append(page)
+        page.pinned += 1 # the requester of the page must unpin it and indicate whether the page has been modified!!!!!!!!!!
 
         #return the index of the added page ie. the back
         return len(self.bufferpool) - 1
