@@ -32,6 +32,8 @@ class Bufferpool():
         #initialize queue
         #bufferpool.pop(0)
         #bufferpool.append(<page>)
+        self.LatestBasePagePath = ""
+        self.LatestBasePageNumRecords = 0
         pass
 
 
@@ -108,4 +110,3 @@ class Bufferpool():
 
 global BP
 BP = Bufferpool()
-PathToLatestBasePage = ""

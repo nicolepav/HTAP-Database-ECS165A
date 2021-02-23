@@ -336,33 +336,78 @@ class Table:
         #2 check if it's a base page? ie what if you called insert after update? && else if not bufferpool[-1].isFull, add record to page
         #3 else create new page, append record
 
-        print("here1")
-        print("here2")
         self.baseRID += 1
         key = record[0]
         self.keyToRID[key] = self.baseRID
         selectedPageRange = self.getPageRange(self.baseRID)
+
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         
         #1
         if len(BP.bufferpool) == 0:
             # create new page and add record
-            newPageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
-            newpage = BasePage(len(record), selectedPageRange, newPageRangePath) #here we should also pass the pageRange(default = 0) and the path(default = "./")
+            BasePagePath = PageRangePath + "/basePage_" + str(0)
+            newpage = BasePage(len(record), selectedPageRange, BasePagePath)
             newpage.insert(self.baseRID, record)
             BP.add_insert(newpage)
             # is this needed? (Don't we do ths check in the add_insert?)
         #2
-        # here we know bufferpool is not empty
-        if (1): 
-            print("here")
+        # here we know bufferpool is not empty, so It must have already seen a base page
 
-        
-        #3
-        else:
-            # create new page, append record
-            newpage = BasePage(len(record))
-            newpage.insert(self.baseRID, record)
-            BP.add_insert(newpage)
+        # check if it's a base page? ie what if you called insert after update? && else if not bufferpool[-1].isFull, add record to page
+        # what is "it" in the line above?
+        if (BP.LatestBasePagePath != ""): 
+            # this is when we have seen a base page already
+
+            # we need to check and see if the latest base page is full or not (How?)
+            # if not bufferpool[-1].isFull   (this wont work because we don't know that the last page in the bufferpool was a base page)
+            # (maybe there is a way to check if the latest basepage is full without bringing it into the bufferpool and instead using math???)
+
+
+            # if it is not full, put the record in the base page
+            if (BP.LatestBasePageNumRecords < ElementsPerPhysicalPage):
+
+                
+
+                # here we know that the latest base page has space
+
+                # if the latest basepage is not in the bufferpool, put it in
+                found = False
+                for page in BP.bufferpool:
+                    if page.path == BP.LatestBasePagePath:
+                        #found the base page in the bufferpool
+                        found = True
+                    if found == True:
+                        break
+                
+                if found == False:
+                    print("code")
+                    # go grab the base page at BP.LatestBasePagePath
+
+                    # add_insert the base page
+                    BP.add_insert()
+
+                    # add the record to the base page in the bufferpool
+
+
+
+                #3
+            else:
+                # this is when base pages exist, but the last one is full
+                # create new page, append record
+                
+                #parse this to get the last basepage number, then +1, then make the new base page
+
+                for PageDir in [dI for dI in os.listdir(PageRangePath) if os.path.isdir(os.path.join(PageRangePath,dI))]:
+                    PageDirPath = self.path + '/' + PageDir
+                    if BP.LatestBasePagePath == PageDirPath:
+                        nextBasePageNum = PageDir[9:]
+                        break
+
+                BasePagePath = PageRangePath + "/basePage_" + str(int(nextBasePageNum) + 1)
+                newpage = BasePage(len(record), selectedPageRange, BasePagePath)
+                newpage.insert(self.baseRID, record)
+                BP.add_insert(newpage)
 
 
         #page creation
@@ -371,7 +416,8 @@ class Table:
 
         #MUST STORE PATH TO LATEST BASE PAGE, so we can resume inserting whereever needeed
         #every time a new base page is added
-        PathToLatestBasePage = newpage.path
+        BP.LatestBasePagePath = newpage.path
+        BP.LatestBasePageNumRecords +=1
 
         pass
 
