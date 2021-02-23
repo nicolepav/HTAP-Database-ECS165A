@@ -8,10 +8,7 @@ import concurrent.futures
 import os
 import json
 
-INDIRECTION_COLUMN = 0
-RID_COLUMN = 1
-TIMESTAMP_COLUMN = 2
-SCHEMA_ENCODING_COLUMN = 3
+from template.config import *
 
 class Record:
     def __init__(self, rid, key, columns):

@@ -1,10 +1,7 @@
 from template.config import *
+from template.config import *
+from sys import maxsize
 import time
-
-INDIRECTION_COLUMN = 0
-RID_COLUMN = 1
-TIMESTAMP_COLUMN = 2
-SCHEMA_ENCODING_COLUMN = 3
 
 INVALID = 0
 # aka base/tail pages
@@ -103,7 +100,7 @@ class BasePage(Page):
         self.metaColumns[SCHEMA_ENCODING_COLUMN].update(1, pageOffset)
 
     def initializeRecordMetaData(self, baseRID):
-        self.metaColumns[INDIRECTION_COLUMN].appendData(0)
+        self.metaColumns[INDIRECTION_COLUMN].appendData(maxsize) # changing this value to sys.maxsize bc 0 is also used for invalidated records
         self.metaColumns[RID_COLUMN].appendData(baseRID)
         self.metaColumns[TIMESTAMP_COLUMN].appendData(round(time.time() * 1000))
         self.metaColumns[SCHEMA_ENCODING_COLUMN].appendData(0)

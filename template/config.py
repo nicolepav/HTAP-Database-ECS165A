@@ -7,6 +7,7 @@
 # PageRange(BasePage, BasePage, BasePage, ...)                                  # 16 "BasePage"s in one "PageRange"
 def init():
     pass
+
 BytesPerElement = 8
 PhysicalPageBytes = 4096
 # aka records per base page
@@ -17,3 +18,8 @@ MergePolicy = 10
 PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = PagesPerPageRange * ElementsPerPhysicalPage
+
+INDIRECTION_COLUMN = 0
+RID_COLUMN = 1
+TIMESTAMP_COLUMN = 2
+SCHEMA_ENCODING_COLUMN = 3

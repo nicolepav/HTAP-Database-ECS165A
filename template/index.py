@@ -1,4 +1,6 @@
 # from blist import blist
+from sys import maxsize
+from template.config import *
 
 """
 A data strucutre holding indices for various columns of a table. Key column should be indexd by default, other columns can be indexed through this object. Indices are usually B-Trees, but other data structures can be used as well.
@@ -44,12 +46,12 @@ class Index:
             for basePages in pageRange.basePages:
                 basePageRecords = basePages.getAllRecords()
                 for record in basePageRecords:
-                    # if record has not been invalidated
-                    # TODO: Update this to whatever the invalidation signifier is when issue resolved
-                    if record[0] != 0:
+
+                    # if record has not been invalidated (aka set to 0)
+                    if record[INDIRECTION_COLUMN] != 0:
 
                         # if schema says record has tail pages
-                        if record[3] == 1:      
+                        if record[SCHEMA_ENCODING_COLUMN] == 1:      
                             # tail logic using indirection column to access tail page
                             tailRecord = pageRange.getPreviousTailRecord(record[0])
                             self.indices[column_number-1].insert(tailRecord[column_number + 3], tailRecord)
