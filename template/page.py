@@ -27,11 +27,12 @@ class Page:
         self.dirty = False
         self.pinned = 0
     
-    @classmethod
-    def recreatePage(cls, path):
+    # @classmethod
+    def recreatePage(self, path):
         # Setup physical pages from disk
-        cls.recreatePhysicalPagesInMemory(path)
+        self.recreatePhysicalPagesInMemory(path)
 
+        # TODO:
         # manually calculate number of records from a single physical page after recreating it's physical pages
 
         # for 0 to ElementsPerPhysicalPage - 1:
@@ -42,31 +43,21 @@ class Page:
     # 1. Iterate through physical pages and make path to physical page file
     # 2. Pass in physical page file path to PhysicalPage.readFromDisk
     def recreatePhysicalPagesInMemory(self, path="./"):
+        # path looks like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
+        self.metaColumns = []
+        self.dataColumns = []
 
-        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
-
-
-        for PhysicalPageDir in [dI for dI in os.listdir(path) if os.path.isdir(os.path.join(path,dI))]:
+        for PhysicalPageDir in [f for f in os.listdir(path) if os.path.isfile(os.path.join(path,f))]:
             PhysicalPagePath = path + '/' + PhysicalPageDir
-            #PhysicalPageDir will hold /metadata_<index> or /data_<index>
-            if "meta" in PhysicalPageDir:
+            #PhysicalPageDir will hold /metaData_<index> or /data_<index>
+            if "metaData_" in PhysicalPageDir:
                 metaData=PhysicalPage()
                 metaData.readFromDisk(PhysicalPagePath)
                 self.metaColumns.append(metaData)
-            else:
+            elif "data_" in PhysicalPageDir:
                 dataColumn=PhysicalPage()
                 dataColumn.readFromDisk(PhysicalPagePath)
                 self.dataColumns.append(dataColumn)
-        
-
-
-            # PhysicalPagePath = path + "/metadata_" + str(index)
-            # metaData.readFromDisk(PhysicalPagePath)
-
-            # PhysicalPagePath = path + "/data_" + str(index)
-            # dataColumn.readFromDisk(PhysicalPagePath)
-
-        pass
 
     def getRecord(self, offset):
         record = []
@@ -101,7 +92,7 @@ class Page:
         print("writing page to disk: " + path)
 
         for metaData in self.metaColumns:
-            PhysicalPagePath = path + "/metadata_" + str(index)
+            PhysicalPagePath = path + "/metaData_" + str(index)
             metaData.writeToDisk(PhysicalPagePath)
             index += 1
         for dataColumn in self.dataColumns:
@@ -114,10 +105,10 @@ class Page:
         # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>"
 
 
-        # PhysicalPagePath = path + "/metadata_" + str(index)
+        # PhysicalPagePath = path + "/Metadata_" + str(index)
         # metaData.readFromDisk(PhysicalPagePath)
 
-        # PhysicalPagePath = path + "/data_" + str(index)
+        # PhysicalPagePath = path + "/Data_" + str(index)
         # dataColumn.readFromDisk(PhysicalPagePath)
 
         pass

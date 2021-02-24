@@ -88,7 +88,8 @@ class Database():
                     metaDictionary["key"],
                     tableDirPath,
                     metaDictionary["baseRID"],
-                    metaDictionary["keyToRID"]
+                    metaDictionary["keyToRID"],
+                    metaDictionary["tailRIDs"]
                 )
                 # we want table.open to populate the table with the data in the Table's Directory
                 # then load the table directory to self.tables

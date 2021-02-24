@@ -103,9 +103,9 @@ class Table:
     :param key: int             #Index of table key in columns
     :variable keyToRID          #
     :variable baseRID           #The current RID used to store a new base record
-    :variable tailRID           #The current RID used for updating a base record, used for tail record
+    :variable tailRIDs          #The current RID used for updating a base record, used for tail record
     """
-    def __init__(self, name, num_columns, key, path = "./", baseRID = -1, keyToRID = {}):
+    def __init__(self, name, num_columns, key, path = "./", baseRID = -1, keyToRID = {}, tailRIDs = []):
         self.name = name
         self.key = key
         self.num_columns = num_columns
@@ -118,6 +118,11 @@ class Table:
         self.index = Index(self)
         self.tailRID = -1
         self.numMerges = 0
+
+        # new tailRID array, each element holds the tailRID of each Page Range. (this will replace tailRID variable)
+        self.tailRIDs = tailRIDs
+        #update this using:  self.tailRIDs[selectedPageRange] += 1
+
         pass
 
     def __merge(self):
@@ -246,13 +251,13 @@ class Table:
             cumulativeRecord = self.spliceRecord(baseRecord, record)
             cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[RID_COLUMN]
         # 3.
-        #TODO: create array of tailRID values for multiple page ranges
-        self.tailRID += 1
-        cumulativeRecord[RID_COLUMN] = self.tailRID
+        #TODO: create array of tailRID values for multiple page ranges DONE? (need to test)
+        self.tailRIDs[selectedPageRange] += 1
+        cumulativeRecord[RID_COLUMN] = self.tailRIDs[selectedPageRange]
         cumulativeRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
         cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
 
-        BP.bufferpool[index].newRecordAppended(self.tailRID, basePageOffset)
+        BP.bufferpool[index].newRecordAppended(self.tailRIDs[selectedPageRange], basePageOffset)
         self.tailInsert(cumulativeRecord)
 
         #copied
@@ -383,6 +388,7 @@ class Table:
             "num_columns": self.num_columns,
             "baseRID": self.baseRID,
             "keyToRID": self.keyToRID,
+            "tailRIDs": self.tailRIDs
             # "indexTo": self.index # python doesn't like this
             # TypeError: Object of type Index is not JSON serializable
         }
@@ -395,7 +401,7 @@ class Table:
         BP.kickAll()
 
     def calculateBasePageIndex(self, baseRID):
-            pageRange = 0
+        pageRange = 0
         while baseRID >= RecordsPerPageRange:
             baseRID -= RecordsPerPageRange
         while baseRID >= ElementsPerPhysicalPage:
@@ -419,6 +425,8 @@ class Table:
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         if not os.path.exists(PageRangePath):
             os.mkdir(PageRangePath)
+        if len(self.tailRIDs) <= selectedPageRange:
+            self.tailRIDs.append(-1)
         selectedBasePage = self.calculateBasePageIndex(baseRID)
         BasePagePath = PageRangePath + "/basePage_" + str(selectedBasePage)
         return BasePagePath
