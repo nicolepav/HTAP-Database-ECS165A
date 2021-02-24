@@ -26,28 +26,27 @@ BufferpoolSize = 16
 
 class Bufferpool():
     
-    def __init__(self,):
+    def __init__(self):
         # global bufferpool
         self.bufferpool = []
         #initialize queue
         #bufferpool.pop(0)
         #bufferpool.append(<page>)
 
-
         ##add a struct that has bufferpool page index mapped to the page's path???
-        self.bufferpoolPaths = []
 
-        self.LatestBasePagePath = ""
-        self.LatestBasePageNumRecords = 0
+        self.LatestBasePagePath = ""      # wont work when more than one table is using
+        self.LatestBasePageNumRecords = 0 # wont work when more than one table is using
         pass
-
 
     def BufferpoolIsFull(self):
         return len(self.bufferpool) >= BufferpoolSize
         
-    def handleReplacement(self, page):  ## NEED TO CHANGE THIS TO GET PASSED A PATH
+    def handleReplacement(self, page):  ## needs to be changed to path passed?
 
-        #should only need to get passed a RID
+        # gets the path of a page
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
+
 
         # also need a book keeping mechanism for the bufferpool:
         # -RID is a page number and a slot within a page!!!!!

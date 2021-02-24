@@ -43,7 +43,7 @@ class Page:
     # 2. Pass in physical page file path to PhysicalPage.readFromDisk
     def recreatePhysicalPagesInMemory(self, path="./"):
 
-        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>" 
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
 
 
         for PhysicalPageDir in [dI for dI in os.listdir(path) if os.path.isdir(os.path.join(path,dI))]:
@@ -93,7 +93,7 @@ class Page:
         return self.metaColumns[INDIRECTION_COLUMN].read(pageOffset)
 
     def writeToDisk(self, path):
-        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>"
         # we want (base/tail)Page.writeToDisk to store the contents of the basePage to a Page directory
 
         index = 0
@@ -111,7 +111,7 @@ class Page:
         pass
 
     def readFromDisk(self, path, index):
-        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>"
 
 
         # PhysicalPagePath = path + "/metadata_" + str(index)

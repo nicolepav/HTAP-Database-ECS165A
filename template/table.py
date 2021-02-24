@@ -278,7 +278,7 @@ class Table:
         pass
 
     def getBasePagePath(self, baseRID):
-        selectedPageRange = self.getPageRange(self.baseRID)
+        selectedPageRange = self.getPageRange(baseRID)
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         selectedBasePage = self.calculateBasePageIndex(baseRID)
         BasePagePath = PageRangePath + "/basePage_" + str(selectedBasePage)
@@ -302,6 +302,48 @@ class Table:
     # 2. Handle IsPageFull Logic: Check meta file or recreate base page and have it manually check to determine if full
     # 3. Then call recreatedPage.insert(RID, recordData)
     def insert(self, record):
+
+        self.baseRID += 1
+        key = record[0]
+        self.keyToRID[key] = self.baseRID
+        selectedPageRange = self.getPageRange(self.baseRID)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        BasePagePath = self.getBasePagePath(self.baseRID)
+    
+
+        #what happens when we insert and there are no base pages?
+
+        # we should check that there is space in the bufferpool
+        # if there is, then we make our page, and insert to bufferpool
+
+        # self.baseRID = 0
+        # selectedPageRange = 0
+        # PageRangePath = './ECS165/table_Grades/pageRange_0'
+        # BasePagePath = './ECS165/table_Grades/pageRange_0/basePage_0'
+
+
+
+
+        # 1.
+        found = False
+        for page in BP.bufferpool:
+            if BasePagePath == page.path:
+                found = True
+                break
+
+        if not found:
+            # 1a.
+            page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
+            page.recreatePage(BasePagePath)
+        else:
+            # 1b.
+            print("code2")
+            # page is the object
+
+        pass
+
+        # =============================================================================================================================================
+
         # 1.
         # self.baseRID += 1
         # key = record[0]
@@ -352,82 +394,84 @@ class Table:
         # bufferpool.add_insert(page)
         # #insert record into page
 
+        # =============================================================================================================================================
+
         #1 if len(bufferpool) == 0: create page add record
         #2 check if it's a base page? ie what if you called insert after update? && else if not bufferpool[-1].isFull, add record to page
         #3 else create new page, append record
 
-        self.baseRID += 1
-        key = record[0]
-        self.keyToRID[key] = self.baseRID
-        selectedPageRange = self.getPageRange(self.baseRID)
+        # self.baseRID += 1
+        # key = record[0]
+        # self.keyToRID[key] = self.baseRID
+        # selectedPageRange = self.getPageRange(self.baseRID)
 
-        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        # PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         
-        #1
-        if len(BP.bufferpool) == 0:
-            # create new page and add record
-            BasePagePath = PageRangePath + "/basePage_" + str(0)
-            newpage = BasePage(len(record), selectedPageRange, BasePagePath)
-            newpage.insert(self.baseRID, record)
-            BP.add_insert(newpage)
-            # is this needed? (Don't we do ths check in the add_insert?)
-        #2
-        # here we know bufferpool is not empty, so It must have already seen a base page
+        # #1
+        # if len(BP.bufferpool) == 0:
+        #     # create new page and add record
+        #     BasePagePath = PageRangePath + "/basePage_" + str(0)
+        #     newpage = BasePage(len(record), selectedPageRange, BasePagePath)
+        #     newpage.insert(self.baseRID, record)
+        #     BP.add_insert(newpage)
+        #     # is this needed? (Don't we do ths check in the add_insert?)
+        # #2
+        # # here we know bufferpool is not empty, so It must have already seen a base page
 
-        # check if it's a base page? ie what if you called insert after update? && else if not bufferpool[-1].isFull, add record to page
-        # what is "it" in the line above?
-        if (BP.LatestBasePagePath != ""): 
-            # this is when we have seen a base page already
+        # # check if it's a base page? ie what if you called insert after update? && else if not bufferpool[-1].isFull, add record to page
+        # # what is "it" in the line above?
+        # if (BP.LatestBasePagePath != ""): 
+        #     # this is when we have seen a base page already
 
-            # we need to check and see if the latest base page is full or not (How?)
-            # if not bufferpool[-1].isFull   (this wont work because we don't know that the last page in the bufferpool was a base page)
-            # (maybe there is a way to check if the latest basepage is full without bringing it into the bufferpool and instead using math???)
+        #     # we need to check and see if the latest base page is full or not (How?)
+        #     # if not bufferpool[-1].isFull   (this wont work because we don't know that the last page in the bufferpool was a base page)
+        #     # (maybe there is a way to check if the latest basepage is full without bringing it into the bufferpool and instead using math???)
 
 
-            # if it is not full, put the record in the base page
-            if (BP.LatestBasePageNumRecords < ElementsPerPhysicalPage):
+        #     # if it is not full, put the record in the base page
+        #     if (BP.LatestBasePageNumRecords < ElementsPerPhysicalPage):
 
                 
 
-                # here we know that the latest base page has space
+        #         # here we know that the latest base page has space
 
-                # if the latest basepage is not in the bufferpool, put it in
-                found = False
-                for page in BP.bufferpool:
-                    if page.path == BP.LatestBasePagePath:
-                        #found the base page in the bufferpool
-                        found = True
-                    if found == True:
-                        break
+        #         # if the latest basepage is not in the bufferpool, put it in
+        #         found = False
+        #         for page in BP.bufferpool:
+        #             if page.path == BP.LatestBasePagePath:
+        #                 #found the base page in the bufferpool
+        #                 found = True
+        #             if found == True:
+        #                 break
                 
-                if found == False:
-                    print("code")
-                    # go grab the base page at BP.LatestBasePagePath
+        #         if found == False:
+        #             print("code")
+        #             # go grab the base page at BP.LatestBasePagePath
 
-                    # add_insert the base page
-                    BP.add_insert()
+        #             # add_insert the base page
+        #             BP.add_insert()
 
-                    # add the record to the base page in the bufferpool
+        #             # add the record to the base page in the bufferpool
 
 
 
-                #3
-            else:
-                # this is when base pages exist, but the last one is full
-                # create new page, append record
+        #         #3
+        #     else:
+        #         # this is when base pages exist, but the last one is full
+        #         # create new page, append record
                 
-                #parse this to get the last basepage number, then +1, then make the new base page
+        #         #parse this to get the last basepage number, then +1, then make the new base page
 
-                for PageDir in [dI for dI in os.listdir(PageRangePath) if os.path.isdir(os.path.join(PageRangePath,dI))]:
-                    PageDirPath = self.path + '/' + PageDir
-                    if BP.LatestBasePagePath == PageDirPath:
-                        nextBasePageNum = PageDir[9:]
-                        break
+        #         for PageDir in [dI for dI in os.listdir(PageRangePath) if os.path.isdir(os.path.join(PageRangePath,dI))]:
+        #             PageDirPath = self.path + '/' + PageDir
+        #             if BP.LatestBasePagePath == PageDirPath:
+        #                 nextBasePageNum = PageDir[9:]
+        #                 break
 
-                BasePagePath = PageRangePath + "/basePage_" + str(int(nextBasePageNum) + 1)
-                newpage = BasePage(len(record), selectedPageRange, BasePagePath)
-                newpage.insert(self.baseRID, record)
-                BP.add_insert(newpage)
+        #         BasePagePath = PageRangePath + "/basePage_" + str(int(nextBasePageNum) + 1)
+        #         newpage = BasePage(len(record), selectedPageRange, BasePagePath)
+        #         newpage.insert(self.baseRID, record)
+        #         BP.add_insert(newpage)
 
 
         #page creation
@@ -436,10 +480,11 @@ class Table:
 
         #MUST STORE PATH TO LATEST BASE PAGE, so we can resume inserting whereever needeed
         #every time a new base page is added
-        BP.LatestBasePagePath = newpage.path
-        BP.LatestBasePageNumRecords +=1
+        # BP.LatestBasePagePath = newpage.path ##this will break when we have mltiple tables
+        # BP.LatestBasePageNumRecords +=1 ##this will break when we have mltiple tables
 
-        pass
+
+        # pass
 
 
 
