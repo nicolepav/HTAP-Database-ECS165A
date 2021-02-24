@@ -302,7 +302,6 @@ class Table:
     # 2. Handle IsPageFull Logic: Check meta file or recreate base page and have it manually check to determine if full
     # 3. Then call recreatedPage.insert(RID, recordData)
     def insert(self, record):
-
         self.baseRID += 1
         key = record[0]
         self.keyToRID[key] = self.baseRID
@@ -310,37 +309,30 @@ class Table:
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         BasePagePath = self.getBasePagePath(self.baseRID)
     
-
-        #what happens when we insert and there are no base pages?
-
-        # we should check that there is space in the bufferpool
-        # if there is, then we make our page, and insert to bufferpool
-
         # self.baseRID = 0
         # selectedPageRange = 0
         # PageRangePath = './ECS165/table_Grades/pageRange_0'
         # BasePagePath = './ECS165/table_Grades/pageRange_0/basePage_0'
 
-
-
-
         # 1.
-        found = False
-        for page in BP.bufferpool:
-            if BasePagePath == page.path:
-                found = True
-                break
-
-        if not found:
-            # 1a.
+        index = BP.pathExists(BasePagePath)
+        if index is None:
             page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
             page.recreatePage(BasePagePath)
+            index = BP.add_insert(page)
         else:
-            # 1b.
-            print("code2")
-            # page is the object
+            index = BP.refresh(index)
 
-        pass
+        #2 
+        if BP.bufferpool[index].isFull():
+            #TODO: create new base page and insert it like above
+            page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
+            #page.recreatePage(BasePagePath)
+            #index = BP.add_insert(page)
+            
+        
+        #now insert the record
+        BP.bufferpool[index].insert(self.baseRID, record) 
 
         # =============================================================================================================================================
 

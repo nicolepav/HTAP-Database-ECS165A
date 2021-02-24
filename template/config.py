@@ -41,34 +41,30 @@ class Bufferpool():
 
     def BufferpoolIsFull(self):
         return len(self.bufferpool) >= BufferpoolSize
-        
-    def handleReplacement(self, page):  ## needs to be changed to path passed?
 
+    def refresh(self, index):
+        page = self.bufferpool.pop(index)
+        self.bufferpool.append(page)
+        return len(self.bufferpool) - 1
+
+        
+    def add_insert(self, page):  ## needs to be changed to path passed?
         # gets the path of a page
         # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
-
-
         # also need a book keeping mechanism for the bufferpool:
         # -RID is a page number and a slot within a page!!!!!
         # -this will allow us to ask the bufferpool if it has a given page, when we just give it a RID
-        # -so, give this structure a RID, it will know what page id belongs to this RID, then it will check its bufferpool to see if it has that page id, (if not, go get it), then return that page
-
-
-
-        #check if page if page is already in bufferpool
-        if page in self.bufferpool:     ###THIS NEEDS TO BE CHANGED
-            #move the page to the back of the q
-            self.bufferpool.remove(page)
-            self.bufferpool.append(page)
-
-            return self.bufferpool.index(page)
-
+        # -so, give this structure a RID, it will know what page id belongs to this RID, then it will check its 
+        # bufferpool to see if it has that page id, (if not, go get it), then return that page
         if (self.BufferpoolIsFull()):
             self.kick()
             
         #add the new page here
         self.bufferpool.append(page)
-        page.pinned += 1 # the requester of the page must unpin it and indicate whether the page has been modified!!!!!!!!!!
+        
+        # the requester of the page must unpin it 
+        #and indicate whether the page has been modified!!!!!!!!!!
+        page.pinned += 1
 
         #return the index of the added page ie. the back
         return len(self.bufferpool) - 1
@@ -93,7 +89,12 @@ class Bufferpool():
             kicked.writeToDisk(kicked.path)
 
     def pathExists(self, path):
-        return True
+        index = len(self.bufferpool) - 1
+        while(index >= 0):
+            if self.bufferpool[index].path == path:
+                return index
+            index -= 1
+        return None
 
     '''
     our bufferpool will act as the intermediary between the physical table and our operations
