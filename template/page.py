@@ -32,12 +32,20 @@ class Page:
         # Setup physical pages from disk
         self.recreatePhysicalPagesInMemory(path)
 
-        # TODO:
+        self.numrecords = self.howManyRecords()
+
+
+    def howManyRecords(self):
+        # TODO: issue, why is "self.metaColumns[TIMESTAMP_COLUMN].read(i)" always returning 0???
         # manually calculate number of records from a single physical page after recreating it's physical pages
 
-        # for 0 to ElementsPerPhysicalPage - 1:
-        # self.metaColumns[RID_COLUMN]
-
+        for i in range(0, ElementsPerPhysicalPage - 1):
+            read_value = self.metaColumns[TIMESTAMP_COLUMN].read(i)
+            if read_value == 0:
+                num_records = i
+                break
+        
+        return num_records;
 
 
     # 1. Iterate through physical pages and make path to physical page file
