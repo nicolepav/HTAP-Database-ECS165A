@@ -277,10 +277,30 @@ class Table:
     def __merge(self):
         pass
 
+    def getBasePagePath(self, baseRID):
+        selectedPageRange = self.getPageRange(self.baseRID)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        selectedBasePage = self.calculateBasePageIndex(baseRID)
+        BasePagePath = PageRangePath + "/basePage_" + str(selectedBasePage)
+        return BasePagePath
+
+    def calculateBasePageIndex(self, baseRID):
+        pageRange = 0
+        while baseRID >= RecordsPerPageRange:
+            baseRID -= RecordsPerPageRange
+        while baseRID >= ElementsPerPhysicalPage:
+            pageRange += 1
+            baseRID -= ElementsPerPhysicalPage
+        return pageRange
+
+    # General Note: Will need to replace any instance of self.basePage[index] with our recreated page objects
+
     # Calls insert on the correct page range
-    # 1. updates baseRID and maps to key
-    # 2. calculate range from baseRID, creating new range if necessary
-    # 3. calls insert for selected pageRange
+    # 1. Check if page is already in bufferpool (getBasePagePath(self, baseRID) compared to BP.pages dictionary {page_path: page_object})
+    #   a. If not, then recreate the page and call BP.handleReplacement(getBasePagePath)
+    #   b. Else get page object from bufferpool queue
+    # 2. Handle IsPageFull Logic: Check meta file or recreate base page and have it manually check to determine if full
+    # 3. Then call recreatedPage.insert(RID, recordData)
     def insert(self, record):
         # 1.
         # self.baseRID += 1

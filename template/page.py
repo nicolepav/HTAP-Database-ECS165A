@@ -1,5 +1,6 @@
 from template.config import *
 import time
+import os
 
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
@@ -9,8 +10,7 @@ SCHEMA_ENCODING_COLUMN = 3
 INVALID = 0
 # aka base/tail pages
 class Page:
-
-    def __init__(self, num_columns, PageRange=0, path="./"):
+    def __init__(self, num_columns, PageRange):
         # 1. initialize meta columns
         self.metaColumns = []
         for i in range(0, MetaElements):
@@ -23,9 +23,50 @@ class Page:
 
         # still need to implement this logic
         self.PageRange = PageRange
-        self.path = path
+        self.path = "./"
         self.dirty = False
         self.pinned = 0
+    
+    @classmethod
+    def recreatePage(cls, path):
+        # Setup physical pages from disk
+        cls.recreatePhysicalPagesInMemory(path)
+
+        # manually calculate number of records from a single physical page after recreating it's physical pages
+
+        # for 0 to ElementsPerPhysicalPage - 1:
+        # self.metaColumns[RID_COLUMN]
+
+
+
+    # 1. Iterate through physical pages and make path to physical page file
+    # 2. Pass in physical page file path to PhysicalPage.readFromDisk
+    def recreatePhysicalPagesInMemory(self, path="./"):
+
+        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>" 
+
+
+        for PhysicalPageDir in [dI for dI in os.listdir(path) if os.path.isdir(os.path.join(path,dI))]:
+            PhysicalPagePath = path + '/' + PhysicalPageDir
+            #PhysicalPageDir will hold /metadata_<index> or /data_<index>
+            if "meta" in PhysicalPageDir:
+                metaData=PhysicalPage()
+                metaData.readFromDisk(PhysicalPagePath)
+                self.metaColumns.append(metaData)
+            else:
+                dataColumn=PhysicalPage()
+                dataColumn.readFromDisk(PhysicalPagePath)
+                self.dataColumns.append(dataColumn)
+        
+
+
+            # PhysicalPagePath = path + "/metadata_" + str(index)
+            # metaData.readFromDisk(PhysicalPagePath)
+
+            # PhysicalPagePath = path + "/data_" + str(index)
+            # dataColumn.readFromDisk(PhysicalPagePath)
+
+        pass
 
     def getRecord(self, offset):
         record = []
@@ -160,6 +201,7 @@ class PhysicalPage:
     def appendData(self, value):
         # append and element to the Physical Page (isFull() checks if there is capacity before calling)
         self.data += value.to_bytes(BytesPerElement, byteorder='big')
+        pass
 
     def read(self, location):
         # location should be the element value between 0 and 511 (ElementsPerPhysicalPage)

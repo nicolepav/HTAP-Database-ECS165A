@@ -32,6 +32,11 @@ class Bufferpool():
         #initialize queue
         #bufferpool.pop(0)
         #bufferpool.append(<page>)
+
+
+        ##add a struct that has bufferpool page index mapped to the page's path???
+        self.bufferpoolPaths = []
+
         self.LatestBasePagePath = ""
         self.LatestBasePageNumRecords = 0
         pass
@@ -40,7 +45,7 @@ class Bufferpool():
     def BufferpoolIsFull(self):
         return len(self.bufferpool) >= BufferpoolSize
         
-    def add_insert(self, page):
+    def handleReplacement(self, page):  ## NEED TO CHANGE THIS TO GET PASSED A PATH
 
         #should only need to get passed a RID
 
@@ -52,10 +57,11 @@ class Bufferpool():
 
 
         #check if page if page is already in bufferpool
-        if page in self.bufferpool:
+        if page in self.bufferpool:     ###THIS NEEDS TO BE CHANGED
             #move the page to the back of the q
             self.bufferpool.remove(page)
             self.bufferpool.append(page)
+
             return self.bufferpool.index(page)
 
         if (self.BufferpoolIsFull()):
@@ -70,7 +76,7 @@ class Bufferpool():
 
 
     #need a way to perform operation on that page in the bufferpool
-    
+    # 1. Update page meta file with meta information
     def kick(self):
         # called when we need to kick a page
         kicked = self.bufferpool.pop(0)
