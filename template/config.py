@@ -1,3 +1,4 @@
+import os
 # Global Setting for the Database
 # PageSize, StartRID, etc..
 
@@ -18,7 +19,7 @@ PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = PagesPerPageRange * ElementsPerPhysicalPage
 
-BufferpoolSize = 16
+BufferpoolSize = 1
 
 # global must be defined after class definition (its just under it)
 # access the global Bufferpool by using "BP"
@@ -44,11 +45,12 @@ class Bufferpool():
 
     def refresh(self, index):
         page = self.bufferpool.pop(index)
+        page.pinned += 1
         self.bufferpool.append(page)
         return len(self.bufferpool) - 1
 
         
-    def add_insert(self, page):  ## needs to be changed to path passed?
+    def add(self, page):  ## needs to be changed to path passed?
         # gets the path of a page
         # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
         # also need a book keeping mechanism for the bufferpool:
@@ -86,9 +88,15 @@ class Bufferpool():
             # write the dirty page to disk
             # get the correct path of where we need to write to
             # path should look like: "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
+            if not os.path.exists(kicked.path):
+                os.mkdir(kicked.path)
             kicked.writeToDisk(kicked.path)
 
-    def pathExists(self, path):
+    def kickAll(self):
+        for page in self.bufferpool:
+            self.kick()
+
+    def pathInBP(self, path):
         index = len(self.bufferpool) - 1
         while(index >= 0):
             if self.bufferpool[index].path == path:

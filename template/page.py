@@ -10,7 +10,7 @@ SCHEMA_ENCODING_COLUMN = 3
 INVALID = 0
 # aka base/tail pages
 class Page:
-    def __init__(self, num_columns, PageRange):
+    def __init__(self, num_columns, PageRange, path):
         # 1. initialize meta columns
         self.metaColumns = []
         for i in range(0, MetaElements):
@@ -23,7 +23,7 @@ class Page:
 
         # still need to implement this logic
         self.PageRange = PageRange
-        self.path = "./"
+        self.path = path
         self.dirty = False
         self.pinned = 0
     
@@ -123,7 +123,7 @@ class Page:
         pass
 
 class BasePage(Page):
-    def __init__(self, num_columns, PageRange=0, path="./"):
+    def __init__(self, num_columns, PageRange, path):
         # 1. initialize meta columns
         self.TPS = -1
         self.metaColumns = []
@@ -167,7 +167,7 @@ class BasePage(Page):
             dataColumn.update(tailRecordData[index], offset)
 
 class TailPage(Page):
-    def __init__(self, num_columns, PageRange=0, path="./"):
+    def __init__(self, num_columns, PageRange, path):
         # 1. initialize meta columns
         self.metaColumns = []
         for i in range(0, MetaElements):

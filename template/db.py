@@ -40,6 +40,8 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         Tablepath = self.path + "/table_" + name
+        if not os.path.exists(Tablepath):
+            os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
         return table
