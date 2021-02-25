@@ -178,10 +178,6 @@ class TailPage(Page):
             dataColumn.appendData(record[index + MetaElements])
 
     def writePageToDisk(self, path):
-        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>"
-        # we want (base/tail)Page.writeToDisk to store the contents of the basePage to a Page directory
-
-        # maybe we can just make a Page_Meta.json to store the numrecords, and the TPS if its a BasePage
         MetaJsonPath = path + "/Page_Meta.json"
         f = open(MetaJsonPath, "w")
         metaDictionary = {
