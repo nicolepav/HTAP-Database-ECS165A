@@ -116,6 +116,7 @@ class Table:
         self.baseRID = baseRID
         self.keyToRID = keyToRID
         self.index = Index(self)
+        #TODO: phase out tailRID and change to tailRIDs list
         self.tailRID = -1
         self.numMerges = 0
 
@@ -251,7 +252,7 @@ class Table:
             cumulativeRecord = self.spliceRecord(baseRecord, record)
             cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[RID_COLUMN]
         # 3.
-        #TODO: create array of tailRID values for multiple page ranges DONE? (need to test)
+        #TODO: create array of tailRID values for multiple page ranges. DONE? (need to test)
         self.tailRIDs[selectedPageRange] += 1
         cumulativeRecord[RID_COLUMN] = self.tailRIDs[selectedPageRange]
         cumulativeRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
@@ -324,6 +325,8 @@ class Table:
         previouslyUpdatedRecord = self.tailPages[previousTailPageIndex].getRecord(previousTailPageOffset)
         return previouslyUpdatedRecord
     
+    #copied
+
     # single tail page cumulative update
     # 1. Get the base record's page index, the record's offset, and record values
     # 2. Create the cumulative record based off a. previous tail record or b. base record
