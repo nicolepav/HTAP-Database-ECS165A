@@ -183,7 +183,7 @@ class Table:
         BasePagePath = self.getBasePagePath(baseRID)
 
         baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
-
+        #here we have the base page in the bufferpool
         basePageOffset = self.calculatePageOffset(baseRID)
         cumulativeRecord = self.setupCumulativeRecord(baseBPindex, basePageOffset, selectedPageRange, record)
 
@@ -296,7 +296,7 @@ class Table:
         if BPindex is None:
             # here we know that the page is not in the bufferpool (So either the page exists, but is only on disk OR we are inserting a record into a new base page)
             if not os.path.exists(TailPagePath):
-                # the page is not in the bufferpool and the path does not exist, so we must be inserting a record into a new base page
+                # the page is not in the bufferpool and the path does not exist, so we must be inserting a record into a new tail page
                 page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
                 BPindex = BP.add(page)
             else:

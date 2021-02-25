@@ -39,14 +39,27 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         Tablepath = self.path + "/table_" + name
-        if not os.path.exists(Tablepath):
-            os.mkdir(Tablepath)
-        else:
-            shutil.rmtree(Tablepath)
-            os.mkdir(Tablepath)
+        if os.path.exists(Tablepath):
+            # TODO uncomment while testing for faster testing
+            # shutil.rmtree(Tablepath)
+            # os.mkdir(Tablepath)
+            raise Exception("Create Table: Cannot create a table that already exists on disk. Use get_table or remove the table from disk.")
+        os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
         return table
+
+    # #debugging create table:
+    # def create_table(self, name, num_columns, key):
+    #     Tablepath = self.path + "/table" + name
+    #     if not os.path.exists(Tablepath):
+    #         os.mkdir(Tablepath)
+    #     else:
+    #         shutil.rmtree(Tablepath)
+    #         os.mkdir(Tablepath)
+    #     table = Table(name, num_columns, key, Tablepath)
+    #     self.tables.append(table)
+    #     return table
 
     """
     # Deletes the specified table
@@ -55,6 +68,11 @@ class Database():
         for table in self.tables:
             if table.name == name:
                 del table
+        Tablepath = self.path + "/table_" + name
+        DroppedTablePath = self.path + "/DROPPED_table_" + name
+        if os.path.exists(Tablepath):
+            os.rename(Tablepath, DroppedTablePath)
+
 
     """
     # Returns table with the passed name
@@ -65,9 +83,10 @@ class Database():
                 return table
         # search for the table at the self.path on the disk
         # for each table directory in the database directory,
+        tableName = "/table_" + name
         for tableDir in [dI for dI in os.listdir(self.path) if os.path.isdir(os.path.join(self.path,dI))]:
             tableDirPath = self.path + '/' + tableDir
-            if name in tableDir:
+            if tableName in tableDir:
                 # get the table object
                 # reads the stored Meta.json and returns the constructed Dictionary
                 MetaJsonPath = tableDirPath + "/Meta.json"
