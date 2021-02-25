@@ -43,7 +43,7 @@ class Database():
             # TODO uncomment while testing for faster testing
             # shutil.rmtree(Tablepath)
             # os.mkdir(Tablepath)
-            raise Exception("Create Table: Cannot create a table that already exists on disk. Use get_table or remove the table from disk.")
+            raise Exception("Create Table: Cannot create a table that already exists on disk. Use get_table or uncomment code to test quickly")
         os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
