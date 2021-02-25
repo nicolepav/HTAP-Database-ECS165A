@@ -3,6 +3,7 @@ from template.page import *
 from template.config import *
 import os
 import json
+# import shutil
 
 
 class Database():
@@ -45,6 +46,18 @@ class Database():
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
         return table
+
+    # #debugging create table:
+    # def create_table(self, name, num_columns, key):
+    #     Tablepath = self.path + "/table" + name
+    #     if not os.path.exists(Tablepath):
+    #         os.mkdir(Tablepath)
+    #     else:
+    #         shutil.rmtree(Tablepath)
+    #         os.mkdir(Tablepath)
+    #     table = Table(name, num_columns, key, Tablepath)
+    #     self.tables.append(table)
+    #     return table
 
     """
     # Deletes the specified table

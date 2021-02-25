@@ -252,11 +252,11 @@ class PhysicalPage:
         self.data[(byte_location):(byte_location + BytesPerElement)] = value.to_bytes(BytesPerElement, byteorder='big')
 
     def writeToDisk(self, path):
-        f = open(path, "w+b")
+        f = open(path, "wb")
         f.write(self.data)
         f.close()
 
     def readFromDisk(self, path):
-        f = open(path, "w+b")
-        self.data = f.read()
+        f = open(path, "rb")
+        self.data = bytearray(f.read())
         f.close()
