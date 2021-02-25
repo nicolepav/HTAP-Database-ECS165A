@@ -46,7 +46,7 @@ class Bufferpool():
     def refresh(self, index):
         page = self.bufferpool.pop(index)
         page.pinned += 1
-        print("pinning: ", page.path, " | refresh | status: ", page.pinned, "\n")
+        # print("pinning: ", page.path, " | refresh | status: ", page.pinned, "\n")
         self.bufferpool.append(page)
         return len(self.bufferpool) - 1
 
@@ -69,7 +69,7 @@ class Bufferpool():
         #and indicate whether the page has been modified!!!!!!!!!!
         page.pinned += 1
         
-        print("pinning: ", page.path, " | add | status: ", page.pinned, "\n")
+        # print("pinning: ", page.path, " | add | status: ", page.pinned, "\n")
 
         #return the index of the added page ie. the back
         return len(self.bufferpool) - 1
