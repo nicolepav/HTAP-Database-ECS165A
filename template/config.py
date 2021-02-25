@@ -19,7 +19,7 @@ PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = int(PagesPerPageRange * ElementsPerPhysicalPage)
 
-BufferpoolSize = 1
+BufferpoolSize = 16
 
 # global must be defined after class definition (its just under it)
 # access the global Bufferpool by using "BP"
@@ -46,6 +46,7 @@ class Bufferpool():
     def refresh(self, index):
         page = self.bufferpool.pop(index)
         page.pinned += 1
+        print("pinning: ", page.path, " | refresh | status: ", page.pinned, "\n")
         self.bufferpool.append(page)
         return len(self.bufferpool) - 1
 
@@ -67,6 +68,8 @@ class Bufferpool():
         # the requester of the page must unpin it 
         #and indicate whether the page has been modified!!!!!!!!!!
         page.pinned += 1
+        
+        print("pinning: ", page.path, " | add | status: ", page.pinned, "\n")
 
         #return the index of the added page ie. the back
         return len(self.bufferpool) - 1
@@ -76,22 +79,20 @@ class Bufferpool():
     # 1. Update page meta file with meta information
     def kick(self):
         # called when we need to kick a page
-        kicked = self.bufferpool.pop(0)
+        for index in range(len(self.bufferpool)):
+            if (self.bufferpool[index].pinned == 0):
+                kicked = self.bufferpool.pop(0)
+                if (kicked.dirty):
+                    # write the dirty page to disk
+                    # get the correct path of where we need to write to
+                    # path should look like: "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
+                    if not os.path.exists(kicked.path):
+                        os.mkdir(kicked.path)
+                    kicked.writePageToDisk(kicked.path)
+                    return
+        raise Exception("Buffer pool: all pages in the bufferpool are pinned.")
+
         
-        if (kicked.pinned > 0):
-            # throw it to the back of the bufferpool so next object can be kicked
-            self.bufferpool.append(kicked)
-            kicked = self.bufferpool.pop(0)
-            return
-
-        if (kicked.dirty):
-            # write the dirty page to disk
-            # get the correct path of where we need to write to
-            # path should look like: "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<basePage or tailPage index>"
-            if not os.path.exists(kicked.path):
-                os.mkdir(kicked.path)
-            kicked.writeToDisk(kicked.path)
-
     def kickAll(self):
         for page in self.bufferpool:
             self.kick()

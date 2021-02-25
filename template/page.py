@@ -1,6 +1,7 @@
 from template.config import *
 import time
 import os
+import json
 
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
@@ -19,7 +20,7 @@ class Page:
         self.dataColumns = []
         for columns in range(0, num_columns):
             self.dataColumns.append(PhysicalPage())
-        self.numrecords = 0
+        self.num_records = 0
 
         # still need to implement this logic
         self.PageRange = PageRange
@@ -103,7 +104,7 @@ class BasePage(Page):
         MetaJsonPath = path + "/Page_Meta.json"
         f = open(MetaJsonPath, "w")
         metaDictionary = {
-            "numrecords": self.numrecords,
+            "num_records": self.num_records,
             "TPS": self.TPS
         }
         json.dump(metaDictionary, f, indent=4)
@@ -129,7 +130,7 @@ class BasePage(Page):
         f = open(MetaJsonPath, "r")
         metaDictionary = json.load(f)
         f.close()
-        self.numrecords = metaDictionary["numrecords"]
+        self.num_records = metaDictionary["num_records"]
         self.TPS = metaDictionary["TPS"]
 
         # path looks like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
@@ -147,8 +148,6 @@ class BasePage(Page):
                 dataColumn=PhysicalPage()
                 dataColumn.readFromDisk(PhysicalPagePath)
                 self.dataColumns.append(dataColumn)
-
-        #if base page, get page meta (numrecords and TPS)
 
 
 class TailPage(Page):
@@ -186,7 +185,7 @@ class TailPage(Page):
         MetaJsonPath = path + "/Page_Meta.json"
         f = open(MetaJsonPath, "w")
         metaDictionary = {
-            "numrecords": self.numrecords
+            "num_records": self.num_records
         }
         json.dump(metaDictionary, f, indent=4)
         f.close()
@@ -211,7 +210,7 @@ class TailPage(Page):
         f = open(MetaJsonPath, "r")
         metaDictionary = json.load(f)
         f.close()
-        self.numrecords = metaDictionary["numrecords"]
+        self.num_records = metaDictionary["num_records"]
 
         # path looks like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
         self.metaColumns = []

@@ -32,6 +32,7 @@ for key in keys:
     # else:
     #     print('select on', key, ':', record)
 print("Select finished")
+print("----------------------")
 
 for _ in range(10):
     for key in keys:
