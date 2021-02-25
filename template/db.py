@@ -53,6 +53,11 @@ class Database():
         for table in self.tables:
             if table.name == name:
                 del table
+        Tablepath = self.path + "/table_" + name
+        DroppedTablePath = self.path + "/DROPPED_table_" + name
+        if os.path.exists(Tablepath):
+            os.rename(Tablepath, DroppedTablePath)
+
 
     """
     # Returns table with the passed name
@@ -63,9 +68,10 @@ class Database():
                 return table
         # search for the table at the self.path on the disk
         # for each table directory in the database directory,
+        tableName = "/table_" + name
         for tableDir in [dI for dI in os.listdir(self.path) if os.path.isdir(os.path.join(self.path,dI))]:
             tableDirPath = self.path + '/' + tableDir
-            if name in tableDir:
+            if tableName in tableDir:
                 # get the table object
                 # reads the stored Meta.json and returns the constructed Dictionary
                 MetaJsonPath = tableDirPath + "/Meta.json"
