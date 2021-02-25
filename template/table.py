@@ -154,7 +154,7 @@ class Table:
             else:
                 # the path does exist, so go read the basepage from disk
                 page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
-                page.recreatePage(BasePagePath)
+                page.readPageFromDisk(BasePagePath)
                 index = BP.add(page)
         else:
             # here the page is in the bufferpool, so we will refresh it.
@@ -183,7 +183,7 @@ class Table:
         if index is None:
             # the path does exist, so go read the basepage from disk
             page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
-            page.recreatePage(BasePagePath)
+            page.readPageFromDisk(BasePagePath)
             index = BP.add(page)
         else:
             # here the page is in the bufferpool, so we will refresh it.
@@ -229,7 +229,7 @@ class Table:
         if index is None:
             # the path does exist, so go read the basepage from disk
             page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
-            page.recreatePage(BasePagePath)
+            page.readPageFromDisk(BasePagePath)
             index = BP.add(page)
         else:
             # here the page is in the bufferpool, so we will refresh it.
@@ -286,7 +286,7 @@ class Table:
             else:
                 # the path does exist, so go read the basepage from disk
                 page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
-                page.recreatePage(BasePagePath)
+                page.readPageFromDisk(BasePagePath)
                 index = BP.add(page)
         else:
             # here the page is in the bufferpool, so we will refresh it.
