@@ -39,8 +39,9 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         Tablepath = self.path + "/table_" + name
-        if not os.path.exists(Tablepath):
-            os.mkdir(Tablepath)
+        if os.path.exists(Tablepath):
+            raise Exception("Create Table: Cannot create a table that already exists on disk. Use get_table or remove the table from disk.")
+        os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
         return table
