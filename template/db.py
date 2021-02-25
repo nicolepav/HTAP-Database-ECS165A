@@ -3,6 +3,7 @@ from template.page import *
 from template.config import *
 import os
 import json
+import shutil
 
 
 class Database():
@@ -22,7 +23,6 @@ class Database():
         if not os.path.exists(self.path):
             raise Exception("Close Error: there is no file at this path.")
 
-        # TODO: How should we deal with old tables? (is this even something we need to do?)
         for table in self.tables:
             # we want table.close to store the contents of the table to a table directory
             tableDirPath = self.path + "/table_" + table.name
@@ -40,6 +40,9 @@ class Database():
     def create_table(self, name, num_columns, key):
         Tablepath = self.path + "/table_" + name
         if not os.path.exists(Tablepath):
+            os.mkdir(Tablepath)
+        else:
+            shutil.rmtree(Tablepath)
             os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)

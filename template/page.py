@@ -52,6 +52,16 @@ class Page:
         self.metaColumns[RID_COLUMN].update(INVALID, pageOffset)
         return self.metaColumns[INDIRECTION_COLUMN].read(pageOffset)
 
+    def insertMetaData(self, metaData, PhysicalPageDir):
+        for i in range(len(self.metaColumns)):
+            if int(PhysicalPageDir[-1]) == i:
+                self.metaColumns[i] = metaData
+
+    def insertData(self, data, PhysicalPageDir):
+        for i in range(len(self.dataColumns)):
+            if (int(PhysicalPageDir[-1]) - MetaElements) == i:
+                self.dataColumns[i] = data
+
 class BasePage(Page):
     def __init__(self, num_columns, PageRange, path):
         # 1. initialize meta columns
@@ -105,26 +115,25 @@ class BasePage(Page):
         f = open(MetaJsonPath, "w")
         metaDictionary = {
             "num_records": self.num_records,
+            "num_columns": len(self.dataColumns),
             "TPS": self.TPS
         }
         json.dump(metaDictionary, f, indent=4)
         f.close()
-
         index = 0
         for metaData in self.metaColumns:
             PhysicalPagePath = path + "/metaData_" + str(index)
             metaData.writeToDisk(PhysicalPagePath)
             index += 1
-        for dataColumn in self.dataColumns:
+        for dataIndex in range(0, len(self.dataColumns)):
             PhysicalPagePath = path + "/data_" + str(index)
-            dataColumn.writeToDisk(PhysicalPagePath)
+            self.dataColumns[dataIndex].writeToDisk(PhysicalPagePath)
             index += 1
 
     def readPageFromDisk(self, path):
         # Setup physical pages from disk
         # 1. Iterate through physical pages and make path to physical page file
         # 2. Pass in physical page file path to PhysicalPage.readFromDisk
-
         #base page, so get page meta (numrecords and TPS)
         MetaJsonPath = path + "/Page_Meta.json"
         f = open(MetaJsonPath, "r")
@@ -132,22 +141,21 @@ class BasePage(Page):
         f.close()
         self.num_records = metaDictionary["num_records"]
         self.TPS = metaDictionary["TPS"]
-
+        numColumns = metaDictionary["num_columns"]
         # path looks like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
-        self.metaColumns = []
-        self.dataColumns = []
-
+        self.metaColumns = [0 for x in range(MetaElements)]
+        self.dataColumns = [0 for x in range(numColumns)]
         for PhysicalPageDir in [f for f in os.listdir(path) if os.path.isfile(os.path.join(path,f))]:
             PhysicalPagePath = path + '/' + PhysicalPageDir
             #PhysicalPageDir will hold /metaData_<index> or /data_<index>
             if "metaData_" in PhysicalPageDir:
                 metaData=PhysicalPage()
                 metaData.readFromDisk(PhysicalPagePath)
-                self.metaColumns.append(metaData)
+                self.insertMetaData(metaData, PhysicalPagePath)
             elif "data_" in PhysicalPageDir:
                 dataColumn=PhysicalPage()
                 dataColumn.readFromDisk(PhysicalPagePath)
-                self.dataColumns.append(dataColumn)
+                self.insertData(dataColumn, PhysicalPagePath)
 
 
 class TailPage(Page):
@@ -181,7 +189,8 @@ class TailPage(Page):
         MetaJsonPath = path + "/Page_Meta.json"
         f = open(MetaJsonPath, "w")
         metaDictionary = {
-            "num_records": self.num_records
+            "num_records": self.num_records,
+            "num_columns": len(self.dataColumns)
         }
         json.dump(metaDictionary, f, indent=4)
         f.close()
@@ -201,16 +210,15 @@ class TailPage(Page):
         # 1. Iterate through physical pages and make path to physical page file
         # 2. Pass in physical page file path to PhysicalPage.readFromDisk
 
-        #tail page, so get page meta (numrecords)
         MetaJsonPath = path + "/Page_Meta.json"
         f = open(MetaJsonPath, "r")
         metaDictionary = json.load(f)
         f.close()
         self.num_records = metaDictionary["num_records"]
-
+        numColumns = metaDictionary["num_columns"]
         # path looks like "./ECS165/table_<table.name>/pageRange_<pageRange index>/(base/tail)Page_<index>" 
-        self.metaColumns = []
-        self.dataColumns = []
+        self.metaColumns = [0 for x in range(MetaElements)]
+        self.dataColumns = [0 for x in range(numColumns)]
 
         for PhysicalPageDir in [f for f in os.listdir(path) if os.path.isfile(os.path.join(path,f))]:
             PhysicalPagePath = path + '/' + PhysicalPageDir
@@ -218,11 +226,11 @@ class TailPage(Page):
             if "metaData_" in PhysicalPageDir:
                 metaData=PhysicalPage()
                 metaData.readFromDisk(PhysicalPagePath)
-                self.metaColumns.append(metaData)
+                self.insertMetaData(metaData, PhysicalPagePath)
             elif "data_" in PhysicalPageDir:
                 dataColumn=PhysicalPage()
                 dataColumn.readFromDisk(PhysicalPagePath)
-                self.dataColumns.append(dataColumn)
+                self.insertData(dataColumn, PhysicalPagePath)
 
 class PhysicalPage:
 
@@ -230,7 +238,6 @@ class PhysicalPage:
         self.data = bytearray()
 
     def appendData(self, value):
-        # append and element to the Physical Page (isFull() checks if there is capacity before calling)
         self.data += value.to_bytes(BytesPerElement, byteorder='big')
         pass
 
@@ -252,11 +259,11 @@ class PhysicalPage:
         self.data[(byte_location):(byte_location + BytesPerElement)] = value.to_bytes(BytesPerElement, byteorder='big')
 
     def writeToDisk(self, path):
-        f = open(path, "w+b")
+        f = open(path, "wb")
         f.write(self.data)
         f.close()
 
     def readFromDisk(self, path):
-        f = open(path, "w+b")
-        self.data = f.read()
+        f = open(path, "rb")
+        self.data = bytearray(f.read())
         f.close()

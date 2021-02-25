@@ -46,18 +46,18 @@ class Bufferpool():
     # 1. Update page meta file with meta information
     def kick(self):
         # called when we need to kick a page
-        for index in range(len(self.bufferpool)):
+        for index in range(0, len(self.bufferpool)):
             if (self.bufferpool[index].pinned == 0):
                 kicked = self.bufferpool.pop(0)
                 if (kicked.dirty):
                     if not os.path.exists(kicked.path):
                         os.mkdir(kicked.path)
                     kicked.writePageToDisk(kicked.path)
-                    return
+                return
         raise Exception("Buffer pool: all pages in the bufferpool are pinned.")
 
     def kickAll(self):
-        for page in self.bufferpool:
+        while len(self.bufferpool) > 0:
             self.kick()
 
     def pathInBP(self, path):

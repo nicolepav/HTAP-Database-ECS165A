@@ -32,7 +32,6 @@ for key in keys:
     # else:
     #     print('select on', key, ':', record)
 print("Select finished")
-print("----------------------")
 
 for _ in range(10):
     for key in keys:
@@ -49,7 +48,7 @@ for _ in range(10):
                 if column != records[key][j]:
                     error = True
             if error:
-                print('update error on', original, 'and', updated_columns, ':', record.columns, ', correct:', records[key])
+                print('update error on', original, 'and', updated_columns, ':', record, ', correct:', records[key])
             # else:
             #     print('update on', original, 'and', updated_columns, ':', record)
             updated_columns[i] = None

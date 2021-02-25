@@ -134,27 +134,20 @@ class Table:
         BasePagePath = self.getBasePagePath(self.baseRID)
 
         BPindex = BP.pathInBP(BasePagePath)
+        # Page not in bufferpool
         if BPindex is None:
-            # here we know that the page is not in the bufferpool (So either the page exists, but is only on disk OR we are inserting a record into a new base page)
-            if not os.path.exists(BasePagePath):
-                # the page is not in the bufferpool and the path does not exist, so we must be inserting a record into a new base page
-                page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
-                BPindex = BP.add(page)
-            else:
-                # the path does exist, so go read the basepage from disk
-                page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
-                page.readPageFromDisk(BasePagePath)
-                BPindex = BP.add(page)
-        else:
-            # here the page is in the bufferpool, so we will refresh it.
-            BPindex = BP.refresh(BPindex)
-
-        if BP.bufferpool[BPindex].isFull():
+            # recreate page
             page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
+            # Create folder if needed
+            if os.path.exists(BasePagePath):
+                page.readPageFromDisk(BasePagePath)
+            # add to bufferpool
             BPindex = BP.add(page)
-
+        # Get page location in bufferpool
+        else:
+            BPindex = BP.refresh(BPindex)
         BP.bufferpool[BPindex].insert(self.baseRID, record)
-        self.markDirty(BPindex)
+        self.finishedModifyingRecord(BPindex)
 
     # m1_tester expects a list of record objects, but we should only be passing back certain columns
     def select(self, key, column, query_columns):
@@ -196,12 +189,12 @@ class Table:
 
         baseBPindex = BP.pathInBP(BasePagePath)
         BP.bufferpool[baseBPindex].newRecordAppended(self.tailRIDs[selectedPageRange], basePageOffset)
-        self.markDirty(baseBPindex)
+        self.finishedModifyingRecord(baseBPindex)
 
         TailPagePath = self.getTailPagePath(self.tailRIDs[selectedPageRange], selectedPageRange)
         tailBPindex = self.getTailPageBufferIndex(selectedPageRange, TailPagePath) #pin
         BP.bufferpool[tailBPindex].insert(cumulativeRecord)
-        self.markDirty(tailBPindex)
+        self.finishedModifyingRecord(tailBPindex)
 
         return True
 
@@ -210,7 +203,6 @@ class Table:
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1: # and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[index].TPS):
             previousTailPagePath = self.getTailPagePath(baseRecord[INDIRECTION_COLUMN], selectedPageRange)
             BPindexTP = self.getTailPageBufferIndex(selectedPageRange, previousTailPagePath)
-
             previousTailPageOffset = self.calculatePageOffset(baseRecord[INDIRECTION_COLUMN])
             previousTailRecord = BP.bufferpool[BPindexTP].getRecord(previousTailPageOffset)
 
@@ -227,7 +219,7 @@ class Table:
         cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
         return cumulativeRecord
 
-    def markDirty(self, BPindex):
+    def finishedModifyingRecord(self, BPindex):
         BP.bufferpool[BPindex].dirty = True
         BP.bufferpool[BPindex].pinned -= 1
 
@@ -252,7 +244,7 @@ class Table:
             returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
 
             BPindex = BP.pathInBP(BasePagePath)
-            BP.bufferpool[BPindex].pinned -=1 
+            BP.bufferpool[BPindex].pinned -=1
             record = [Record(record.rid, record.key, returned_record_columns)]
 
             none_in_range = False
@@ -263,7 +255,7 @@ class Table:
             return summation
 
     def getMostUpdatedRecord(self, baseRecord, BPindex, selectedPageRange, key):
-        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1 and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[BPindex].TPS):
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1: #and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[BPindex].TPS):
             previousTailRecord = self.getPreviousTailRecord(baseRecord, selectedPageRange)
             record = Record(previousTailRecord[RID_COLUMN], key, previousTailRecord[MetaElements:])
         else:
@@ -272,7 +264,7 @@ class Table:
 
     def setupReturnedRecord(self, record, query_columns):
         returned_record_columns = []
-        for query_column in range(len(query_columns)):
+        for query_column in range(0, len(query_columns)):
             if (query_columns[query_column] == 1):
                 returned_record_columns.append(record.columns[query_column])
             else:
