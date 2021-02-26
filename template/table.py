@@ -398,9 +398,57 @@ class Table:
             offset -= ElementsPerPhysicalPage
         return offset
 
+    # 1. Iterate over all page ranges inside this tables folder
+    # 2. For each base folder, recreate the base page
+    #     a. Check base record, if updated, recreate tail page and go to tail record
+    def getAllUpdatedRecords(self):
+        allRecords = []
+        for selectedPageRange in range(0, self.getPageRange(self.baseRID) + 1):
+            PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+            for selectedBasePage in range(0, self.calculateBasePageIndex(self.baseRID) + 1):
+                BasePagePath = PageRangePath + "/basePage_" + str(selectedBasePage)
+                basePage = self.getBasePage(self, selectedPageRange, BasePagePath)
+                basePageRecords = basePage.getAllRecords()
+                for baseRecord in basePageRecords:
+                    #check for tail page
+                    if baseRecord[INDIRECTION_COLUMN] != 0:
+                        tailIndex = self.calculateTailPageIndex(baseRecord[INDIRECTION_COLUMN])
+                        TailPagePath = PageRangePath + "/tailPage_" + str(tailIndex)
+                        tailPage = self.getTailPage(selectedPageRange, TailPagePath)
+                        for tailRecord in tailPage:
+                            if (tailRecord[RID_COLUMN] == baseRecord[INDIRECTION_COLUMN]):
+                                allRecords.append(tailRecord)
+                    elif baseRecord[INDIRECTION_COLUMN] == 0:
+                        allRecords.append(baseRecord)
+                    
+
+
+        return allRecords
+    
+    def getAllBasePages(self):
+        allBasePages = []
+        # iterate from 0 to most recently updated pageRange (handle case for only 1 pageRange)
+        for selectedPageRange in range(0, self.getPageRange(self.baseRID) + 1):
+            PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+            for selectedBasePage in range(0, self.calculateBasePageIndex(self.baseRID) + 1):
+                BasePagePath = PageRangePath + "/basePage_" + str(selectedBasePage)
+                allBasePages.append(self.getBasePage(self, selectedPageRange, BasePagePath))
+        return allBasePages
+                    
+    def getTailPage(self, selectedPageRange, TailPagePath): #TODO: not using the bufferpool, maybe there is reason for this?
+        page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+        page.readPageFromDisk(TailPagePath)
+        return page
+
+    def getBasePage(self, selectedPageRange, BasePagePath): #TODO: not using the bufferpool, maybe there is reason for this?
+        page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
+        page.readPageFromDisk(BasePagePath)
+        return page
+
     def getPageRange(self, baseRID):
         if baseRID > RecordsPerPageRange and floor(baseRID / RecordsPerPageRange) == 0:
             print("Error")
+            # raise Exception("PageRange Error.") #TODO: Do we want actual error output here?
         return floor(baseRID / RecordsPerPageRange)
 
     # Base record's indirection is pointing to a record that's already been merged
