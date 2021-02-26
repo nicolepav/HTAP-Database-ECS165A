@@ -13,6 +13,7 @@ INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
 SCHEMA_ENCODING_COLUMN = 3
+BASE_RID = 4
 
 class Record:
     def __init__(self, rid, key, columns):
@@ -54,7 +55,7 @@ class PageRange:
                         continue
                     tailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
                     basePageOffset = self.calculatePageOffset(baseRecord[RID_COLUMN])
-                    basePage.mergeTailRecord(basePageOffset, tailRecord[RID_COLUMN], tailRecord[MetaElements:])
+                    basePage.mergeTailRecord(basePageOffset, tailRecord[RID_COLUMN], tailRecord[MetaElements + 1:])
                     mergedRecord = basePage.getRecord(basePageOffset)
         return basePages
 
@@ -167,6 +168,7 @@ class Table:
 
         mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
         returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
+
         BPindex = BP.pathInBP(BasePagePath)
         BP.bufferpool[BPindex].pinned -=1
         return [Record(mostUpdatedRecord.rid, mostUpdatedRecord.key, returned_record_columns)]
@@ -186,7 +188,6 @@ class Table:
         #here we have the base page in the bufferpool
         basePageOffset = self.calculatePageOffset(baseRID)
         cumulativeRecord = self.setupCumulativeRecord(baseBPindex, basePageOffset, selectedPageRange, record)
-
         baseBPindex = BP.pathInBP(BasePagePath)
         BP.bufferpool[baseBPindex].newRecordAppended(self.tailRIDs[selectedPageRange], basePageOffset)
         self.finishedModifyingRecord(baseBPindex)
@@ -200,23 +201,17 @@ class Table:
 
     def setupCumulativeRecord(self, BPindex, basePageOffset, selectedPageRange, record):
         baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
+        self.tailRIDs[selectedPageRange] += 1
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1: # and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[index].TPS):
             previousTailPagePath = self.getTailPagePath(baseRecord[INDIRECTION_COLUMN], selectedPageRange)
             BPindexTP = self.getTailPageBufferIndex(selectedPageRange, previousTailPagePath)
             previousTailPageOffset = self.calculatePageOffset(baseRecord[INDIRECTION_COLUMN])
             previousTailRecord = BP.bufferpool[BPindexTP].getRecord(previousTailPageOffset)
 
-            cumulativeRecord = self.spliceRecord(previousTailRecord, record)
-            cumulativeRecord[INDIRECTION_COLUMN] = previousTailRecord[RID_COLUMN]
-
+            cumulativeRecord = self.createCumulativeRecord(previousTailRecord, record, previousTailRecord[RID_COLUMN], baseRecord[RID_COLUMN], selectedPageRange, MetaElements + 1)
             BP.bufferpool[BPindexTP].pinned -= 1
         else:
-            cumulativeRecord = self.spliceRecord(baseRecord, record)
-            cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[RID_COLUMN]
-        self.tailRIDs[selectedPageRange] += 1
-        cumulativeRecord[RID_COLUMN] = self.tailRIDs[selectedPageRange]
-        cumulativeRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
-        cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
+            cumulativeRecord = self.createCumulativeRecord(baseRecord, record, baseRecord[RID_COLUMN], baseRecord[RID_COLUMN], selectedPageRange, MetaElements)
         return cumulativeRecord
 
     def finishedModifyingRecord(self, BPindex):
@@ -242,7 +237,6 @@ class Table:
             mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
             query_columns = [1, 1, 1, 1, 1]
             returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
-
             BPindex = BP.pathInBP(BasePagePath)
             BP.bufferpool[BPindex].pinned -=1
             record = [Record(record.rid, record.key, returned_record_columns)]
@@ -257,7 +251,7 @@ class Table:
     def getMostUpdatedRecord(self, baseRecord, BPindex, selectedPageRange, key):
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1: #and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[BPindex].TPS):
             previousTailRecord = self.getPreviousTailRecord(baseRecord, selectedPageRange)
-            record = Record(previousTailRecord[RID_COLUMN], key, previousTailRecord[MetaElements:])
+            record = Record(previousTailRecord[RID_COLUMN], key, previousTailRecord[MetaElements + 1:])
         else:
             record = Record(baseRecord[RID_COLUMN], key, baseRecord[MetaElements:])
         return record
@@ -314,20 +308,6 @@ class Table:
         selectedTailPage = self.calculateTailPageIndex(tailRID)
         TailPagePath = PageRangePath + "/tailPage_" + str(selectedTailPage)
         return TailPagePath
-
-    # Similar to baseInsert but takes in record with meta data and data
-    # and does a full insert of meta data and data
-    # Accounts for merge if needed
-    def tailInsert(self, fullRecord):
-        if not self.tailPages or self.tailPages[-1].isFull():
-            if len(self.tailPages) == MergePolicy:
-                self.initiateMerge()
-            # only want len(dataColumns) for Page Instantiation
-            newPage = TailPage(len(fullRecord) - MetaElements)
-            newPage.insert(fullRecord)
-            self.tailPages.append(newPage)
-        else:
-            self.tailPages[-1].insert(fullRecord)
 
     def getPreviousTailRecord(self, baseRecord, selectedPageRange):
         previousTailPagePath = self.getTailPagePath(baseRecord[INDIRECTION_COLUMN], selectedPageRange)
@@ -398,6 +378,26 @@ class Table:
             offset -= ElementsPerPhysicalPage
         return offset
 
+    def getAllBasePages(self):
+        allBasePages = []
+        # iterate from 0 to most recently updated pageRange (handle case for only 1 pageRange)
+        for selectedPageRange in range(0, self.getPageRange(self.baseRID) + 1):
+            PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+            for selectedBasePage in range(0, self.calculateBasePageIndex(self.baseRID) + 1):
+                BasePagePath = PageRangePath + "/basePage_" + str(selectedBasePage)
+                allBasePages.append(self.getBasePage(self, selectedPageRange, BasePagePath))
+        return allBasePages
+
+    def getTailPage(self, selectedPageRange, TailPagePath): #TODO: not using the bufferpool, maybe there is reason for this?
+        page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+        page.readPageFromDisk(TailPagePath)
+        return page
+
+    def getBasePage(self, selectedPageRange, BasePagePath): #TODO: not using the bufferpool, maybe there is reason for this?
+        page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
+        page.readPageFromDisk(BasePagePath)
+        return page
+
     def getPageRange(self, baseRID):
         if baseRID > RecordsPerPageRange and floor(baseRID / RecordsPerPageRange) == 0:
             print("Error")
@@ -410,14 +410,19 @@ class Table:
         return False
 
     # Cumulative splicing
-    def spliceRecord(self, oldRecord, updatedRecord):
+    def createCumulativeRecord(self, oldRecord, updatedRecord, indirectionColumn, baseRID, selectedPageRange, NumMetaElements):
         createdRecord = []
-        for metaIndex in range(0, MetaElements):
-            createdRecord.append(oldRecord[metaIndex])
+        for metaIndex in range(0, MetaElements + 1):
+            createdRecord.append(0)
+        createdRecord[INDIRECTION_COLUMN] = indirectionColumn
+        createdRecord[RID_COLUMN] = self.tailRIDs[selectedPageRange]
+        createdRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
+        createdRecord[SCHEMA_ENCODING_COLUMN] = 1
+        createdRecord[BASE_RID] = baseRID
         for columnIndex in range(0, len(updatedRecord)):
             #use data from the oldRecord
             if updatedRecord[columnIndex] == None:
-                createdRecord.append(oldRecord[columnIndex + 4])
+                createdRecord.append(oldRecord[columnIndex + NumMetaElements])
             else:
                 createdRecord.append(updatedRecord[columnIndex])
         return createdRecord
