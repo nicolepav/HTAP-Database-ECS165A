@@ -42,24 +42,11 @@ class Database():
         if os.path.exists(Tablepath):
             # TODO uncomment while testing for faster testing
             # shutil.rmtree(Tablepath)
-            # os.mkdir(Tablepath)
             raise Exception("Create Table: Cannot create a table that already exists on disk. Use get_table or uncomment code to test quickly")
         os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
         return table
-
-    # #debugging create table:
-    # def create_table(self, name, num_columns, key):
-    #     Tablepath = self.path + "/table" + name
-    #     if not os.path.exists(Tablepath):
-    #         os.mkdir(Tablepath)
-    #     else:
-    #         shutil.rmtree(Tablepath)
-    #         os.mkdir(Tablepath)
-    #     table = Table(name, num_columns, key, Tablepath)
-    #     self.tables.append(table)
-    #     return table
 
     """
     # Deletes the specified table
@@ -86,7 +73,7 @@ class Database():
         tableName = "/table_" + name
         for tableDir in [dI for dI in os.listdir(self.path) if os.path.isdir(os.path.join(self.path,dI))]:
             tableDirPath = self.path + '/' + tableDir
-            if tableName in tableDir:
+            if tableName in tableDirPath:
                 # get the table object
                 # reads the stored Meta.json and returns the constructed Dictionary
                 MetaJsonPath = tableDirPath + "/Meta.json"

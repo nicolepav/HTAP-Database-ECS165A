@@ -245,10 +245,9 @@ class Table:
 
             BPindex = BP.pathInBP(BasePagePath)
             BP.bufferpool[BPindex].pinned -=1
-            record = [Record(record.rid, record.key, returned_record_columns)]
 
             none_in_range = False
-            summation += record.columns[aggregate_column_index]
+            summation += mostUpdatedRecord.columns[aggregate_column_index]
         if (none_in_range):
             return False
         else:
