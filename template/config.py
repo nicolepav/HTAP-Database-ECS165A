@@ -21,6 +21,22 @@ RecordsPerPageRange = int(PagesPerPageRange * ElementsPerPhysicalPage)
 
 BufferpoolSize = 16
 
+'''
+our bufferpool will act as the intermediary between the physical table and our operations
+so when we insert: we create a page in memeory and perform operations on it
+when that page is kicked out (kick()) of the bufferpool, we write it onto the disk
+    pages will created in order in the bufferpool, and then written to physical memory in order (unless pinned)
+
+updates will have to pull the physical base page and then tail pages into memory/create a tail page in memory, and then update the record
+
+deletions will function similarly to updates
+
+base functionality
+    rewrite all function to hook into bufferpool
+merge/dirty functionality
+pinning pages, locking from getting kicked
+'''
+
 # global must be defined after class definition (its just under it)
 class Bufferpool():
     def __init__(self):
@@ -68,30 +84,9 @@ class Bufferpool():
             index -= 1
         return None
 
-    '''
-    our bufferpool will act as the intermediary between the physical table and our operations
-    so when we insert: we create a page in memeory and perform operations on it
-    when that page is kicked out (kick()) of the bufferpool, we write it onto the disk
-        pages will created in order in the bufferpool, and then written to physical memory in order (unless pinned)
 
-    updates will have to pull the physical base page and then tail pages into memory/create a tail page in memory, and then update the record
-
-    deletions will function similarly to updates
-
-    base functionality
-        rewrite all function to hook into bufferpool
-    merge/dirty functionality
-    pinning pages, locking from getting kicked
-    '''
 global BP
 BP = Bufferpool()
-
-
-
-
-
-
-
 
 
 
@@ -125,6 +120,19 @@ class Bufferpool_Not_a_Queue():
     def BufferpoolIsFull(self):
         return not any(spot is None for spot in self.bufferpool)
 
+    # # this way passes in an index
+    # def refresh(self, index):
+    #     #Find the Page that has this path in the bufferpool, then refresh its age, and increment the other pages in bufferpool age
+    #     for spot in self.bufferpool:
+    #         if not spot is None:
+    #             if spot.path == self.bufferpool[index].path:
+    #                 spot.age = 1
+    #                 spot.pinned += 1
+    #             else:
+    #                 spot.age += 1
+    #     return index
+
+    # this way passes in a path
     def refresh(self, path):
         #Find the Page that has this path in the bufferpool, then refresh its age, and increment the other pages in bufferpool age
         found_index = self.pathInBP(path)
