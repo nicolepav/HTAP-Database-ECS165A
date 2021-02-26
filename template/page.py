@@ -8,7 +8,6 @@ RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
 SCHEMA_ENCODING_COLUMN = 3
 
-INVALID = 0 #TODO: change invalid logic to have a max int
 # aka base/tail pages
 class Page:
     def __init__(self, num_columns, PageRange, path):

@@ -19,6 +19,8 @@ PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = int(PagesPerPageRange * ElementsPerPhysicalPage)
 
+INVALID = 72057594037927935 #TODO: change invalid logic to have a max int (7 byes, Hexadecimal: 0xFFFFFFFFFFFFFF)
+
 BufferpoolSize = 16
 
 '''
