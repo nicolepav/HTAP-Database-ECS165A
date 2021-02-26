@@ -20,7 +20,7 @@ class Record:
         self.key = key
         self.columns = columns
 
-class PageRange:
+class PageRange: #TODO: eventually remove this class
     def __init__(self):
         self.basePages = []
         self.tailPages = []
@@ -97,7 +97,7 @@ class Table:
     :variable baseRID           #The current RID used to store a new base record
     :variable tailRIDs          #The current RID used for updating a base record, used for tail record
     """
-    def __init__(self, name, num_columns, key, path = "./", baseRID = -1, keyToRID = {}, tailRIDs = []):
+    def __init__(self, name, num_columns, key, path = "./", baseRID = -1, tailRIDs = [], keyToRID = {}):
         self.name = name
         self.key = key
         self.num_columns = num_columns
@@ -270,7 +270,7 @@ class Table:
                 returned_record_columns.append(None)
         return returned_record_columns
 
-    def delete(self, key):
+    def delete(self, key): #TODO: not done yet
         if key not in self.keyToRID:
             print("No RID found for this key")
             return False
@@ -344,8 +344,8 @@ class Table:
             "key": self.key,
             "num_columns": self.num_columns,
             "baseRID": self.baseRID,
-            "keyToRID": self.keyToRID,
-            "tailRIDs": self.tailRIDs
+            "tailRIDs": self.tailRIDs,
+            "keyToRID": self.keyToRID
             # "indexTo": self.index # python doesn't like this
             # TypeError: Object of type Index is not JSON serializable
         }

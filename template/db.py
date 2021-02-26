@@ -41,8 +41,8 @@ class Database():
         Tablepath = self.path + "/table_" + name
         if os.path.exists(Tablepath):
             # TODO uncomment while testing for faster testing
-            # shutil.rmtree(Tablepath)
-            raise Exception("Create Table: Cannot create a table that already exists on disk. Use get_table or uncomment code to test quickly")
+            shutil.rmtree(Tablepath)
+            # raise Exception("Create Table: Cannot create a table that already exists on disk. Use get_table or uncomment code to test quickly")
         os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
@@ -74,11 +74,15 @@ class Database():
         for tableDir in [dI for dI in os.listdir(self.path) if os.path.isdir(os.path.join(self.path,dI))]:
             tableDirPath = self.path + '/' + tableDir
             if tableName in tableDirPath:
+
+
+
                 # get the table object
                 # reads the stored Meta.json and returns the constructed Dictionary
                 MetaJsonPath = tableDirPath + "/Meta.json"
                 f = open(MetaJsonPath, "r")
                 metaDictionary = json.load(f)
+
                 # json.decoder.JSONDecodeError: Expecting value: line 1008 column 16 (char 25009)
                 f.close()
                 # metaDictionary is a dictionary filled with the table's meta info
@@ -89,8 +93,8 @@ class Database():
                     metaDictionary["key"],
                     tableDirPath,
                     metaDictionary["baseRID"],
-                    metaDictionary["keyToRID"],
-                    metaDictionary["tailRIDs"]
+                    metaDictionary["tailRIDs"],
+                    {int(k):v for k,v in metaDictionary["keyToRID"].items()}
                 )
                 # we want table.open to populate the table with the data in the Table's Directory
                 # then load the table directory to self.tables
