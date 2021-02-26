@@ -270,7 +270,7 @@ class Table:
                 returned_record_columns.append(None)
         return returned_record_columns
 
-    def delete(self, key): #TODO: not done yet
+    def delete(self, key): #TODO: not done yet (Note that Invalid is now max int)
         if key not in self.keyToRID:
             print("No RID found for this key")
             return False
