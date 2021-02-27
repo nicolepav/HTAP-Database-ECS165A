@@ -58,33 +58,6 @@ class PageRange: #TODO: eventually remove this class
                     mergedRecord = basePage.getRecord(basePageOffset)
         return basePages
 
-    # 1. Invalidate base record
-    # 2. Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
-    def delete(self, key, baseRID):
-        # 1.
-        basePageIndex = self.calculateBasePageIndex(baseRID)
-        basePageOffset = self.calculatePageOffset(baseRID)
-        baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
-        self.basePages[basePageIndex].invalidateRecord(basePageOffset)
-        # 2.
-        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
-            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID)
-
-    def invalidateTailRecords(self, indirectionRID, baseIndirectionRID):
-        if indirectionRID == baseIndirectionRID:
-            return
-        else:
-            pageIndex = self.calculateTailPageIndex(indirectionRID)
-            pageOffset = self.calculatePageOffset(indirectionRID)
-            # Check to see if page already removed and return if so
-            if pageIndex < 0 or pageIndex >= len(self.tailPages):
-                return
-            try:
-                nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
-                self.invalidateTailRecords(nextRID, baseIndirectionRID)
-            except:
-                print("race case occurred?")
-
     def open(self, path):
         pass
 
@@ -165,9 +138,12 @@ class Table:
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
 
+        if baseRecord[RID_COLUMN] == INVALID:
+            BP.bufferpool[BPindex].pinned -=1
+            return False
+
         mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
         returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
-        BPindex = BP.pathInBP(BasePagePath)
         BP.bufferpool[BPindex].pinned -=1
         return [Record(mostUpdatedRecord.rid, mostUpdatedRecord.key, returned_record_columns)]
 
@@ -185,21 +161,25 @@ class Table:
         baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         #here we have the base page in the bufferpool
         basePageOffset = self.calculatePageOffset(baseRID)
-        cumulativeRecord = self.setupCumulativeRecord(baseBPindex, basePageOffset, selectedPageRange, record)
+        baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
+        if baseRecord[RID_COLUMN] == INVALID:
+            BP.bufferpool[baseBPindex].pinned -=1
+            return False
 
-        baseBPindex = BP.pathInBP(BasePagePath)
+        cumulativeRecord = self.setupCumulativeRecord(baseBPindex, basePageOffset, selectedPageRange, record, baseRecord)
+
         BP.bufferpool[baseBPindex].newRecordAppended(self.tailRIDs[selectedPageRange], basePageOffset)
         self.finishedModifyingRecord(baseBPindex)
 
         TailPagePath = self.getTailPagePath(self.tailRIDs[selectedPageRange], selectedPageRange)
-        tailBPindex = self.getTailPageBufferIndex(selectedPageRange, TailPagePath) #pin
+        tailBPindex = self.getTailPageBufferIndex(selectedPageRange, TailPagePath)
         BP.bufferpool[tailBPindex].insert(cumulativeRecord)
         self.finishedModifyingRecord(tailBPindex)
 
         return True
 
-    def setupCumulativeRecord(self, BPindex, basePageOffset, selectedPageRange, record):
-        baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
+    def setupCumulativeRecord(self, BPindex, basePageOffset, selectedPageRange, record, baseRecord):
+
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1: # and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[index].TPS):
             previousTailPagePath = self.getTailPagePath(baseRecord[INDIRECTION_COLUMN], selectedPageRange)
             BPindexTP = self.getTailPageBufferIndex(selectedPageRange, previousTailPagePath)
@@ -239,11 +219,14 @@ class Table:
             basePageOffset = self.calculatePageOffset(baseRID)
             baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
 
+            if baseRecord[RID_COLUMN] == INVALID:
+                BP.bufferpool[BPindex].pinned -=1
+                continue
+
             mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
             query_columns = [1, 1, 1, 1, 1]
             returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
 
-            BPindex = BP.pathInBP(BasePagePath)
             BP.bufferpool[BPindex].pinned -=1
 
             none_in_range = False
@@ -270,13 +253,47 @@ class Table:
                 returned_record_columns.append(None)
         return returned_record_columns
 
-    def delete(self, key): #TODO: not done yet (Note that Invalid is now max int)
+    def delete(self, key): #TODO: not done yet
         if key not in self.keyToRID:
             print("No RID found for this key")
             return False
         baseRID = self.keyToRID[key]
         selectedPageRange = self.getPageRange(baseRID)
-        self.page_directory[selectedPageRange].delete(key, baseRID)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        BasePagePath = self.getBasePagePath(baseRID)
+        baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
+        basePageOffset = self.calculatePageOffset(baseRID)
+        baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
+
+        # Invalidate base record
+        BP.bufferpool[baseBPindex].invalidateRecord(basePageOffset)
+        self.finishedModifyingRecord(baseBPindex)
+
+        # Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
+            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID, selectedPageRange)
+
+    def invalidateTailRecords(self, indirectionRID, baseRID, selectedPageRange):
+        if indirectionRID == baseRID:
+            return
+        else:
+            # pageIndex = self.calculateTailPageIndex(indirectionRID)
+            pageOffset = self.calculatePageOffset(indirectionRID)
+            TailPagePath = self.getTailPagePath(indirectionRID, selectedPageRange)
+            
+            tailBPindex = BP.pathInBP(TailPagePath)
+            if tailBPindex is None:
+                # here we know that the page is not in the bufferpool (So the page exists only on disk)
+                page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+                page.readPageFromDisk(TailPagePath)
+                tailBPindex = BP.add(page)
+            else:
+                # here the page is in the bufferpool, so we will refresh it.
+                tailBPindex = BP.refresh(tailBPindex)
+
+            nextRID = BP.bufferpool[tailBPindex].invalidateRecord(pageOffset)
+            self.finishedModifyingRecord(tailBPindex)
+            self.invalidateTailRecords(nextRID, baseRID, selectedPageRange)
 
     def getBasePageBPIndex(self, BasePagePath, selectedPageRange):
         BPindex = BP.pathInBP(BasePagePath)

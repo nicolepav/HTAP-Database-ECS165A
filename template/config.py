@@ -19,7 +19,7 @@ PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = int(PagesPerPageRange * ElementsPerPhysicalPage)
 
-INVALID = 72057594037927935 #TODO: change invalid logic to have a max int (7 byes, Hexadecimal: 0xFFFFFFFFFFFFFF)
+INVALID = 72057594037927935 #(max int for 7 byes, Hexadecimal: 0xFFFFFFFFFFFFFF)
 
 BufferpoolSize = 16
 
@@ -27,85 +27,16 @@ BufferpoolSize = 16
 our bufferpool will act as the intermediary between the physical table and our operations
 so when we insert: we create a page in memeory and perform operations on it
 when that page is kicked out (kick()) of the bufferpool, we write it onto the disk
-    pages will created in order in the bufferpool, and then written to physical memory in order (unless pinned)
+    pages will created in order in the bufferpool, and then written to physical memory in order 
+    (must be pinned to be kicked, must be dirty to be written)
 
 updates will have to pull the physical base page and then tail pages into memory/create a tail page in memory, and then update the record
 
 deletions will function similarly to updates
-
-base functionality
-    rewrite all function to hook into bufferpool
-merge/dirty functionality
-pinning pages, locking from getting kicked
 '''
 
 # global must be defined after class definition (its just under it)
 class Bufferpool():
-    def __init__(self):
-        self.bufferpool = []
-        pass
-
-    def BufferpoolIsFull(self):
-        return len(self.bufferpool) >= BufferpoolSize
-
-    def refresh(self, index):
-        page = self.bufferpool.pop(index)
-        page.pinned += 1
-        self.bufferpool.append(page)
-        return len(self.bufferpool) - 1
-
-    def add(self, page):
-        if (self.BufferpoolIsFull()):
-            self.kick()
-        self.bufferpool.append(page)
-        page.pinned += 1
-        return len(self.bufferpool) - 1
-
-    # 1. Update page meta file with meta information
-    def kick(self):
-        # called when we need to kick a page
-        for index in range(0, len(self.bufferpool)):
-            if (self.bufferpool[index].pinned == 0):
-                kicked = self.bufferpool.pop(0)
-                if (kicked.dirty):
-                    if not os.path.exists(kicked.path):
-                        os.mkdir(kicked.path)
-                    kicked.writePageToDisk(kicked.path)
-                return
-        raise Exception("Bufferpool: all pages in the bufferpool are pinned.")
-
-    def kickAll(self):
-        while len(self.bufferpool) > 0:
-            self.kick()
-
-    def pathInBP(self, path):
-        index = len(self.bufferpool) - 1
-        while(index >= 0):
-            if self.bufferpool[index].path == path:
-                return index
-            index -= 1
-        return None
-
-
-global BP
-BP = Bufferpool()
-
-
-
-
-
-#going to attempt to remake this so that ages, and pinned work much better
-#getting rid of the queue aspect
-
-#1. change global BP to a Bufferpool_Non_Queue() object
-
-#2. add "self.age = 1" to the Page, PasePage(Page), and TailPage(Page) classes (minimum age = 1) (this may not need to be done??? test worked fine without it)
-
-#3. do unpinning better in table funcitons
-# (basically, there are some extra calls to the pathInBP() function that had to be made with the queue functionality, but are no longer needed)
-# (leaving them in should not cause bugs, but will mean that we are running some code that does nothing)
-
-class Bufferpool_Non_Queue():
     def __init__(self):
         self.bufferpool = [None]*BufferpoolSize
         pass
@@ -167,5 +98,5 @@ class Bufferpool_Non_Queue():
         return None
 
 
-
-# BP = Bufferpool_Non_Queue()
+global BP
+BP = Bufferpool()
