@@ -97,26 +97,15 @@ BP = Bufferpool()
 #going to attempt to remake this so that ages, and pinned work much better
 #getting rid of the queue aspect
 
-#1. look into better data structure than queue, can hold Nones in some spots and pages in other spots, but indexing doesn't change
-# [BPage, TPage, None, None, TPage, None, BPage, ... etc] max length is "BufferpoolSize"
-# (decided on just using a list, but doing it smart. fill list with "None"s to start)
-# (then when we add a page, replace the "None")
-# (then when we remove a page, replace it with a "None")
-#DONE
+#1. change global BP to a Bufferpool_Non_Queue() object
 
-#2. implement data stucture
-#DONE
+#2. add "self.age = 1" to the Page, PasePage(Page), and TailPage(Page) classes (minimum age = 1) (this may not need to be done??? test worked fine without it)
 
-#3. redo Bufferpool_Not_a_Queue Class functions
-#DONE
-
-#4. add "self.age = 1" to the Page, PasePage(Page), and TailPage(Page) classes (minimum age = 1)
-
-#5. do unpinning better in table funcitons
+#3. do unpinning better in table funcitons
 # (basically, there are some extra calls to the pathInBP() function that had to be made with the queue functionality, but are no longer needed)
 # (leaving them in should not cause bugs, but will mean that we are running some code that does nothing)
 
-class Bufferpool_Not_a_Queue():
+class Bufferpool_Non_Queue():
     def __init__(self):
         self.bufferpool = [None]*BufferpoolSize
         pass
@@ -136,28 +125,13 @@ class Bufferpool_Not_a_Queue():
                     spot.age += 1
         return index
 
-    # # this way passes in a path
-    # def refresh(self, path):
-    #     #Find the Page that has this path in the bufferpool, then refresh its age, and increment the other pages in bufferpool age
-    #     found_index = self.pathInBP(path)
-    #     if found_index == None:
-    #         raise Exception("Bufferpool Error: can't refresh because page is not in bufferpool.")
-    #     for spot in self.bufferpool:
-    #         if not spot is None:
-    #             if spot.path == path:
-    #                 spot.age = 1
-    #                 spot.pinned += 1
-    #             else:
-    #                 spot.age += 1
-    #     return found_index
-
     def add(self, page):
         if (self.BufferpoolIsFull()):
             self.kick()
         for index, spot in enumerate(self.bufferpool):
             if spot is None:
                 self.bufferpool[index] = page
-                self.refresh(page.path) #on the way in, we set the age to 1 and update the other ages
+                self.refresh(index) #on the way in, we set the age to 1 and update the other ages
                 return index
         raise Exception("Bufferpool Error: couldn't find empty spot after kicking.")
 
@@ -173,7 +147,7 @@ class Bufferpool_Not_a_Queue():
             raise Exception("Bufferpool Error: all pages in the bufferpool are pinned.")
         kicked = self.bufferpool[index_oldest]
         kicked.age = 1 #on the way out, we set the age to 1
-        self.bufferpool[index_oldest] == None
+        self.bufferpool[index_oldest] = None
         if (kicked.dirty):
             if not os.path.exists(kicked.path):
                 os.mkdir(kicked.path)
@@ -188,8 +162,10 @@ class Bufferpool_Not_a_Queue():
         for index, spot in enumerate(self.bufferpool):
             if not spot is None:
                 if (spot.path == path):
-                    self.refresh(spot.path) #when we check what the page's path is, we set the age to 0
+                    # self.refresh(index) #on the way in, we set the age to 1 and update the other ages
                     return index
         return None
 
 
+
+# BP = Bufferpool_Non_Queue()
