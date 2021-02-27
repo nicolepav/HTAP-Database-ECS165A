@@ -75,8 +75,6 @@ class Database():
             tableDirPath = self.path + '/' + tableDir
             if tableName in tableDirPath:
 
-
-
                 # get the table object
                 # reads the stored Meta.json and returns the constructed Dictionary
                 MetaJsonPath = tableDirPath + "/Meta.json"

@@ -74,8 +74,6 @@ class Table:
         self.name = name
         self.key = key
         self.num_columns = num_columns
-        # add page range to page directory TODO: Delete once phased out
-        self.page_directory = [PageRange()]
         # map key to RID for query operations
         self.path = path
         self.baseRID = baseRID
@@ -253,7 +251,7 @@ class Table:
                 returned_record_columns.append(None)
         return returned_record_columns
 
-    def delete(self, key): #TODO: not done yet
+    def delete(self, key):
         if key not in self.keyToRID:
             print("No RID found for this key")
             return False
