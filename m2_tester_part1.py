@@ -34,7 +34,7 @@ for key in keys:
     #     print('select on', key, ':', record.columns)
 print("Select finished")
 
-for _ in range(1):
+for _ in range(2):
     for key in keys:
         updated_columns = [None, None, None, None, None]
         for i in range(1, grades_table.num_columns):
@@ -51,12 +51,28 @@ for _ in range(1):
             if error:
                 print('update error on', original, 'and', updated_columns, ':', record.columns, ', correct:', records[key])
             # else:
-            #     print('update on', original, 'and', updated_columns, ':', record)
+            #     print('update on', original, 'and', updated_columns, ':', record.columns)
             updated_columns[i] = None
 print("Update finished")
 
 db.close()
-
+db.open('./ECS165')
+print("database closed and reopened")
+print("select started")
+grades_table = db.get_table('Grades')
+query = Query(grades_table)
+for key in keys:
+    record = query.select(key, 0, [1, 1, 1, 1, 1])[0]
+    error = False
+    for i, column in enumerate(record.columns):
+        if column != records[key][i]:
+            error = True
+    if error:
+        print('select error on', key, ':', record.columns, ', correct:', records[key])
+    # else:
+    #     print('select on', key, ':', record.columns)
+print("Select finished")
+db.close()
 # for _ in range(10):
 #     for key in keys:
 #         updated_columns = [None, None, None, None, None]

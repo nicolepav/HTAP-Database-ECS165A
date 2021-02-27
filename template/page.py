@@ -37,10 +37,10 @@ class Page:
             record.append(dataColumn.read(offset))
         return record
 
-    def getAllRecords(self):
+    def getAllRecordsReversed(self):
         records = []
         recordsPerPage = int(ElementsPerPhysicalPage)
-        for i in range(0, self.num_records):
+        for i in range(self.num_records - 1, -1, -1):
             record = self.getRecord(i)
             records.append(self.getRecord(i))
         return records
@@ -67,6 +67,9 @@ class Page:
         return MetaElements
 
     def writePageToDisk(self, path):
+        if self.consolidated:
+            self.writeMetaToDisk(path)
+            return
         self.writePageMeta(path)
         index = 0
         for metaData in self.metaColumns:
@@ -118,6 +121,8 @@ class BasePage(Page):
         self.path = path
         self.dirty = False
         self.pinned = 0
+        # only updated when in bufferpool
+        self.consolidated = False
 
     # Appends each record's element across all physical pages
     def insert(self, RID, record):
@@ -138,7 +143,6 @@ class BasePage(Page):
         self.metaColumns[SCHEMA_ENCODING_COLUMN].appendData(0)
 
     def mergeTailRecord(self, offset, tailRID, tailRecordData):
-        # need to figure out what to do about disk management here (should we delete old tail page files and replace with the new merged file?)
         if tailRID > self.TPS:
             self.TPS = tailRID
         for index, dataColumn in enumerate(self.dataColumns):
@@ -167,6 +171,21 @@ class BasePage(Page):
         numColumns = metaDictionary["num_columns"]
         return numColumns
 
+    def writeMetaToDisk(self, path):
+        index = 0
+        for metaData in self.metaColumns:
+            PhysicalPagePath = path + "/metaData_" + str(index)
+            metaData.writeToDisk(PhysicalPagePath)
+            index += 1
+
+    def writeDataToDisk(self, path):
+        self.writePageMeta(path)
+        index = MetaElements
+        for dataIndex in range(0, len(self.dataColumns)):
+            PhysicalPagePath = path + "/data_" + str(index)
+            self.dataColumns[dataIndex].writeToDisk(PhysicalPagePath)
+            index += 1
+
 
 class TailPage(Page):
     def __init__(self, num_columns, PageRange, path):
@@ -185,6 +204,7 @@ class TailPage(Page):
         self.path = path
         self.dirty = False
         self.pinned = 0
+        self.consolidated = False
 
     # Appends meta data and record data
     def insert(self, record):
