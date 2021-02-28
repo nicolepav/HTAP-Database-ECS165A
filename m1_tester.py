@@ -66,7 +66,3 @@ for c in range(0, grades_table.num_columns):
             print('sum on [', keys[r[0]], ',', keys[r[1]], ']: ', column_sum)
 
 
-query.create_index(2)
-query.create_index(3)
-query.create_index(4)
-print(query.select(15))

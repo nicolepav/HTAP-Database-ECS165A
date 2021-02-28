@@ -66,6 +66,3 @@ for i in range(0, 100):
 print("Aggregate finished")
 db.close()
 
-
-
-query.select(92106432)
