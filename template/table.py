@@ -21,42 +21,6 @@ class Record:
         self.key = key
         self.columns = columns
 
-class PageRange:
-    def __init__(self):
-        self.basePages = []
-        self.tailPages = []
-        pass
-
-    # 1. Invalidate base record
-    # 2. Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
-    def delete(self, key, baseRID):
-        # 1.
-        basePageIndex = self.calculateBasePageIndex(baseRID)
-        basePageOffset = self.calculatePageOffset(baseRID)
-        baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
-        self.basePages[basePageIndex].invalidateRecord(basePageOffset)
-        # 2.
-        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
-            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID)
-
-    def invalidateTailRecords(self, indirectionRID, baseIndirectionRID):
-        if indirectionRID == baseIndirectionRID:
-            return
-        else:
-            pageIndex = self.calculateTailPageIndex(indirectionRID)
-            pageOffset = self.calculatePageOffset(indirectionRID)
-            # Check to see if page already removed and return if so
-            if pageIndex < 0 or pageIndex >= len(self.tailPages):
-                return
-            try:
-                nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
-                self.invalidateTailRecords(nextRID, baseIndirectionRID)
-            except:
-                print("race case occurred?")
-
-    def open(self, path):
-        pass
-
 class Table:
     """
     :param name: string         #Table name
@@ -66,24 +30,20 @@ class Table:
     :variable baseRID           #The current RID used to store a new base record
     :variable tailRIDs          #The current RID used for updating a base record, used for tail record
     """
-    def __init__(self, name, num_columns, key, path = "./", baseRID = -1, keyToRID = {}, tailRIDs = []):
+    def __init__(self, name, num_columns, key, path = "./", baseRID = -1, tailRIDs = [], keyToRID = {}, numMerges = 0):
         self.name = name
         self.key = key
         self.num_columns = num_columns
         # add page range to page directory TODO: Delete once phased out
-        self.page_directory = [PageRange()]
+        # self.page_directory = [PageRange()]
         # map key to RID for query operations
         self.path = path
         self.baseRID = baseRID
         self.keyToRID = keyToRID
         self.index = Index(self)
-        self.numMerges = 0
+        self.numMerges = numMerges
         # new tailRID array, each element holds the tailRID of each Page Range.
         self.tailRIDs = tailRIDs
-
-        pass
-
-    # General Note: Will need to replace any instance of self.basePage[index] with our recreated page objects
 
     # Calls insert on the correct page range
     # 1. Check if page is already in bufferpool (getBasePagePath(self, baseRID) compared to BP.pages dictionary {page_path: page_object})
@@ -130,6 +90,10 @@ class Table:
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
 
+        if baseRecord[RID_COLUMN] == INVALID:
+            BP.bufferpool[BPindex].pinned -=1
+            return False
+
         mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
         returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
 
@@ -153,6 +117,11 @@ class Table:
         baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
+
+        if baseRecord[RID_COLUMN] == INVALID:
+            BP.bufferpool[baseBPindex].pinned -=1
+            return False
+
         self.tailRIDs[selectedPageRange] += 1
         BP.bufferpool[baseBPindex].newRecordAppended(self.tailRIDs[selectedPageRange], basePageOffset)
         self.finishedModifyingRecord(baseBPindex)
@@ -194,15 +163,18 @@ class Table:
             basePageOffset = self.calculatePageOffset(baseRID)
             baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
 
+            if baseRecord[RID_COLUMN] == INVALID:
+                BP.bufferpool[BPindex].pinned -=1
+                continue
+
             mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
             query_columns = [1, 1, 1, 1, 1]
             returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
-            BPindex = BP.pathInBP(BasePagePath)
+
             BP.bufferpool[BPindex].pinned -=1
-            record = [Record(record.rid, record.key, returned_record_columns)]
 
             none_in_range = False
-            summation += record.columns[aggregate_column_index]
+            summation += mostUpdatedRecord.columns[aggregate_column_index]
         if (none_in_range):
             return False
         else:
@@ -231,7 +203,39 @@ class Table:
             return False
         baseRID = self.keyToRID[key]
         selectedPageRange = self.getPageRange(baseRID)
-        self.page_directory[selectedPageRange].delete(key, baseRID)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        BasePagePath = self.getBasePagePath(baseRID)
+        baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
+        basePageOffset = self.calculatePageOffset(baseRID)
+        baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
+
+        # Invalidate base record
+        BP.bufferpool[baseBPindex].invalidateRecord(basePageOffset)
+        self.finishedModifyingRecord(baseBPindex)
+
+        # Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
+            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID, selectedPageRange)
+
+    def invalidateTailRecords(self, indirectionRID, baseRID, selectedPageRange):
+        if indirectionRID == baseRID:
+            return
+        else:
+            pageOffset = self.calculatePageOffset(indirectionRID)
+            TailPagePath = self.getTailPagePath(indirectionRID, selectedPageRange)
+            tailBPindex = BP.pathInBP(TailPagePath)
+            if tailBPindex is None:
+                # here we know that the page is not in the bufferpool (So the page exists only on disk)
+                page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+                page.readPageFromDisk(TailPagePath)
+                tailBPindex = BP.add(page)
+            else:
+                # here the page is in the bufferpool, so we will refresh it.
+                tailBPindex = BP.refresh(tailBPindex)
+
+            nextRID = BP.bufferpool[tailBPindex].invalidateRecord(pageOffset)
+            self.finishedModifyingRecord(tailBPindex)
+            self.invalidateTailRecords(nextRID, baseRID, selectedPageRange)
 
     def getBasePageBPIndex(self, BasePagePath, selectedPageRange):
         BPindex = BP.pathInBP(BasePagePath)
@@ -281,15 +285,13 @@ class Table:
         MetaJsonPath = path + "/Meta.json"
         f = open(MetaJsonPath, "w")
         metaDictionary = {
-            "name": self.name, 
+            "name": self.name,
             "key": self.key,
             "num_columns": self.num_columns,
             "baseRID": self.baseRID,
             "keyToRID": self.keyToRID,
             "tailRIDs": self.tailRIDs,
             "numMerges": self.numMerges
-            # "indexTo": self.index # python doesn't like this
-            # TypeError: Object of type Index is not JSON serializable
         }
         json.dump(metaDictionary, f, indent=4)
         f.close()
@@ -316,7 +318,7 @@ class Table:
         while tailRID >= ElementsPerPhysicalPage:
             pageIndex += 1
             tailRID -= ElementsPerPhysicalPage
-        return pageIndex # - self.numMerges * MergePolicy
+        return pageIndex
 
     # 1. Call perform merge on background thread
     # 2. Have BP only write metaData pages for any pages currently being merged which are also in the BP still
@@ -444,8 +446,6 @@ class Table:
         return page
 
     def getPageRange(self, baseRID):
-        if baseRID > RecordsPerPageRange and floor(baseRID / RecordsPerPageRange) == 0:
-            print("Error")
         return floor(baseRID / RecordsPerPageRange)
 
     # Base record's indirection is pointing to a record that's already been merged

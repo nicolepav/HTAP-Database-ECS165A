@@ -9,7 +9,6 @@ TIMESTAMP_COLUMN = 2
 SCHEMA_ENCODING_COLUMN = 3
 BASE_RID = 4
 
-INVALID = 0
 # aka base/tail pages
 class Page:
     def __init__(self, num_columns, PageRange, path):
@@ -28,6 +27,7 @@ class Page:
         self.path = path
         self.dirty = False
         self.pinned = 0
+        self.age = 1
 
     def getRecord(self, offset):
         record = []
@@ -123,6 +123,7 @@ class BasePage(Page):
         self.pinned = 0
         # only updated when in bufferpool
         self.consolidated = False
+        self.age = 1
 
     # Appends each record's element across all physical pages
     def insert(self, RID, record):
@@ -205,6 +206,7 @@ class TailPage(Page):
         self.dirty = False
         self.pinned = 0
         self.consolidated = False
+        self.age = 1
 
     # Appends meta data and record data
     def insert(self, record):
