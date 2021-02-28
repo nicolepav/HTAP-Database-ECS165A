@@ -16,6 +16,8 @@ tree.insert([0,1,0,0,0],2)
 tree.insert([0,5,0,0,0],2)
 tree.insert([0,22,0,0,0],2)
 tree.insert([0,17,0,0,0],2)
+tree.insert([1,16,0,0,0],2)
 
-tree.printTop2Tiers()
-print (tree.find(16, 2))
+
+
+tree.preorder()

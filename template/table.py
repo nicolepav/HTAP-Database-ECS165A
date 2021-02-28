@@ -483,3 +483,10 @@ class Table:
             else:
                 createdRecord.append(updatedRecord[columnIndex])
         return createdRecord
+
+
+    def indexSelect(self,key):
+        
+        for index in self.index.indices:
+            if index != None:
+                print(index)

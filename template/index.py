@@ -12,6 +12,7 @@ class Index:
         # One index for each table. All our empty initially.
         self.indices = [None] *  table.num_columns
         self.table = table
+        self.indices[0] = BTree()
 
 
     """
@@ -19,10 +20,7 @@ class Index:
     """
     #TODO Finish this
     def locate(self, column, value):
-        self.indices[column-1].clearReturningData()
-        self.indices[column-1].returnRangeData(self.indices[column-1].root, value, value)
-        returningRecords = self.indices[column-1].returnData
-        #return the location
+
         pass
 
     """
@@ -30,10 +28,7 @@ class Index:
     """
 
     def locate_range(self, begin, end, column):
-        self.indices[column-1].clearReturnData()
-        self.indices[column-1].returnRangeData(self.indices[column-1].root, begin, end)
-        returningRecords = self.indices[column-1].returnData
-        return returningRecords
+        pass
 
     """
     # optional: Create index on specific column
@@ -41,6 +36,7 @@ class Index:
     #record data = array of pageranges
     #column_number assumes the user passes the number of the table column from their view
     def create_index(self, column_number):
+        self.indices[column_number-1] = BTree()
         pass
                         
 
@@ -61,6 +57,7 @@ class BNode:
         self.data = list([data])
         self.parent = par
         self.child = list()
+        self.returningData = []
 
     def __str__(self):
         if self.parent:
