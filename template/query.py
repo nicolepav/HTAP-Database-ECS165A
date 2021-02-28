@@ -93,3 +93,5 @@ class Query:
             return u
         return False
 
+    def create_index(self, column_number):
+        self.table.create_index(column_number)

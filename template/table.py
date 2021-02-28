@@ -484,6 +484,11 @@ class Table:
                 createdRecord.append(updatedRecord[columnIndex])
         return createdRecord
 
+    def create_index(self, column_number):
+        print("create on index", column_number-1)
+        pass
+
+
 
     def indexSelect(self,key):
         

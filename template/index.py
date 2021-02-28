@@ -5,6 +5,10 @@ from template.config import *
 """
 A data strucutre holding indices for various columns of a table. Key column should be indexd by default, other columns can be indexed through this object. Indices are usually B-Trees, but other data structures can be used as well.
 """
+INDIRECTION_COLUMN = 0
+RID_COLUMN = 1
+TIMESTAMP_COLUMN = 2
+SCHEMA_ENCODING_COLUMN = 3
 
 class Index:
 
@@ -28,7 +32,12 @@ class Index:
     """
 
     def locate_range(self, begin, end, column):
-        pass
+        returningRIDs = []
+        records = self.indices[column-1].findRange(begin,end,column)
+        for record in records:
+            returningRIDs.append(record[RID_COLUMN])
+
+        return returningRIDs
 
     """
     # optional: Create index on specific column
@@ -50,6 +59,7 @@ class Index:
         pass
 
 
+returningData = []
 
 class BNode:
     def __init__(self, data, par=None):
@@ -96,7 +106,7 @@ class BNode:
             self.child[-1]._insert(new_node, keyColumn)
         else:
             for i in range(0, len(self.data)):
-                if new_node.data[0][keyColumn] < self.data[i][keyColumn]:
+                if new_node.data[0][keyColumn] <= self.data[i][keyColumn]:
                     self.child[i]._insert(new_node, keyColumn)
                     break
 
@@ -126,21 +136,28 @@ class BNode:
             left_child.parent = self
             right_child.parent = self
 
-    # find an item in the tree; return item, or False if not found
+    # find all item in the tree; USED FOR SELECT(key) 
     def _find(self, key, keyColumn):
         # print ("Find " + str(item))
         for record in self.data:
             if record[keyColumn] == key:
-                return record
+                returningData.append(record)
 
-        if self._isLeaf():
-        	return False
-        elif key > self.data[-1][keyColumn]:
-        	return self.child[-1]._find(key, keyColumn)
-        else:
-        	for i in range(len(self.data)):
-        		if key < self.data[i][keyColumn]:
-        			return self.child[i]._find(key, keyColumn)
+        for child in self.child:
+            child._find(key, keyColumn)
+
+        return returningData
+
+    def _findRange(self, begin, end, keyColumn):
+        # print ("Find " + str(item))
+        for record in self.data:
+            if record[keyColumn] >= begin and record[keyColumn] <= end:
+                returningData.append(record)
+
+        for child in self.child:
+            child._findRange(begin, end, keyColumn)
+
+        return returningData
 
     def _remove(self, item):
         pass
@@ -169,7 +186,14 @@ class BTree:
 
     # TODO: change to find range of keys
     def find(self, key, keyColumn):
+        global returningData
+        returningData = []
         return self.root._find(key, keyColumn-1)
+
+    def findRange(self,begin,end, keyColumn):
+            global returningData
+            returningData = []
+            return self.root._findRange(begin,end,keyColumn-1)
 
     def remove(self, record):
         self.root.remove(record)

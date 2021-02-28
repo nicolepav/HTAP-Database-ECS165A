@@ -67,3 +67,4 @@ for c in range(0, grades_table.num_columns):
 
 
 query.select(3)
+query.create_index(2)
