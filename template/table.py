@@ -9,6 +9,7 @@ import concurrent.futures
 import os
 import json
 
+
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
@@ -120,6 +121,8 @@ class Table:
         BP.bufferpool[BPindex].insert(self.baseRID, record)
         self.finishedModifyingRecord(BPindex)
 
+        self.indexInsert(record)
+
     # m1_tester expects a list of record objects, but we should only be passing back certain columns
     def select(self, key, column, query_columns):
         if key not in self.keyToRID:
@@ -174,6 +177,7 @@ class Table:
         BP.bufferpool[tailBPindex].insert(cumulativeRecord)
         self.finishedModifyingRecord(tailBPindex)
 
+        self.indexUpdate(cumulativeRecord)
         return True
 
     def setupCumulativeRecord(self, BPindex, basePageOffset, selectedPageRange, record, baseRecord):
@@ -512,6 +516,35 @@ class Table:
 
 
     def indexSelect(self,key):
+        returnRID = []
+        sortedRIDs = {}
+        incrementer = 0
         for index in self.index.indices:
+            incrementer += 1
             if index != None:
-                print(index)
+                rids = self.index.locate(incrementer,key)
+                sortedRIDs["Column "+ str(incrementer)] = rids
+                for rid in rids:
+                    returnRID.append(rid)
+                    
+        print(sortedRIDs)
+        return returnRID
+
+
+    def indexInsert(self, record):
+        RID = self.baseRID - 1 
+        newRecord = [record[0],record[1],record[2],record[3],record[4], RID]
+        incrementer = 0
+        for index in self.index.indices:
+            incrementer += 1
+            if index != None:
+                index.insert(newRecord,incrementer)
+
+
+    def indexUpdate(self, record):
+        newRecord = [record[4],record[5],record[6],record[7],record[8], record[RID_COLUMN]]
+        incrementer = 0
+        for index in self.index.indices:
+            incrementer += 1
+            if index != None:
+                index.findAndChange(newRecord,record[RID_COLUMN])

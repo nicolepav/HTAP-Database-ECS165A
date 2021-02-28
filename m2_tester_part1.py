@@ -13,6 +13,7 @@ query = Query(grades_table)
 
 # repopulate with random data
 records = {}
+query.create_index(2)
 seed(3562901)
 for i in range(0, 10):
     key = 92106429 + i
@@ -66,4 +67,5 @@ print("Aggregate finished")
 db.close()
 
 
-query.create_index(2)
+
+query.select(92106432)

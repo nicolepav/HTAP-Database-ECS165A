@@ -15,8 +15,9 @@ class Index:
     def __init__(self, table):
         # One index for each table. All our empty initially.
         self.indices = [None] *  table.num_columns
-        self.table = table
         self.indices[0] = BTree()
+        self.table = table
+        
 
 
     """
@@ -24,9 +25,13 @@ class Index:
     """
     #TODO Finish this
     def locate(self, column, value):
-        records = self.indices[column-1].find(value, column)
+        returningRIDs = []
+        allRecords = self.indices[column-1].find(value , column)
+        for record in allRecords:
+            returningRIDs.append(record[-1])
+        return returningRIDs
+        
 
-        pass
 
     """
     # Returns the RIDs of all records with values in column "column" between "begin" and "end"
@@ -36,7 +41,7 @@ class Index:
         returningRIDs = []
         records = self.indices[column-1].findRange(begin,end,column)
         for record in records:
-            returningRIDs.append(record[RID_COLUMN])
+            returningRIDs.append(record[-1])
 
         return returningRIDs
 
@@ -46,8 +51,14 @@ class Index:
     #record data = array of pageranges
     #column_number assumes the user passes the number of the table column from their view
     def create_index(self, column_number):
+        # print("index created on ", column_number)
         self.indices[column_number-1] = BTree()
-        print(self.table.getAllUpdatedRecords())
+        # print(self.table.getAllUpdatedRecords())
+        allRecords = self.table.getAllUpdatedRecords()
+        for record in allRecords:
+            insertedRecord = [record[4],record[5],record[6],record[7], record[RID_COLUMN]]
+            self.indices[column_number-1].insert(insertedRecord,column_number)
+        
         pass
                         
 
@@ -161,6 +172,15 @@ class BNode:
 
         return returningData
 
+    def _findAndChange(self, newRecord, RID):
+        for record in self.data:
+            if record[-1] == RID:
+                record = newRecord
+                break
+        for child in self.child:
+            child._findAndChange(newRecord, RID)
+
+
     def _remove(self, item):
         pass
 
@@ -173,11 +193,11 @@ class BNode:
 
 class BTree:
     def __init__(self):
-        print("Tree __init__")
+        # print("Tree __init__")
         self.root = None
 
     def insert(self, record, keyColumn):
-        print("Tree insert: " + str(record[keyColumn-1]))
+        # print("Tree insert: " + str(record[keyColumn-1]))
         if self.root is None:
             self.root = BNode(record)
         else:
@@ -211,4 +231,5 @@ class BTree:
         print('----Preorder----')
         self.root._preorder()
 
-
+    def findAndChange(self, record, RID):
+        self.root._findAndChange(record,RID)
