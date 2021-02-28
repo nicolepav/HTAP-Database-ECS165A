@@ -24,6 +24,7 @@ class Index:
     """
     #TODO Finish this
     def locate(self, column, value):
+        records = self.indices[column-1].find(value, column)
 
         pass
 
@@ -46,6 +47,7 @@ class Index:
     #column_number assumes the user passes the number of the table column from their view
     def create_index(self, column_number):
         self.indices[column_number-1] = BTree()
+        print(self.table.getAllUpdatedRecords())
         pass
                         
 

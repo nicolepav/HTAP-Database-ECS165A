@@ -14,7 +14,7 @@ query = Query(grades_table)
 # repopulate with random data
 records = {}
 seed(3562901)
-for i in range(0, 1000):
+for i in range(0, 10):
     key = 92106429 + i
     records[key] = [key, randint(0, 20), randint(0, 20), randint(0, 20), randint(0, 20)]
     query.insert(*records[key])
@@ -64,3 +64,6 @@ for i in range(0, 100):
     #     print('sum on [', keys[r[0]], ',', keys[r[1]], ']: ', column_sum)
 print("Aggregate finished")
 db.close()
+
+
+query.create_index(2)
