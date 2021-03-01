@@ -219,6 +219,10 @@ class Table:
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
             self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID, selectedPageRange)
 
+
+        if self.index:
+            self.indexUpdate(baseRID)
+
     def invalidateTailRecords(self, indirectionRID, baseRID, selectedPageRange):
         if indirectionRID == baseRID:
             return
@@ -523,3 +527,11 @@ class Table:
             incrementer += 1
             if index != None:
                 index.findAndChange(newRecord,record[RID_COLUMN])
+
+    def indexDelete(self,RID):
+        newRecord = None
+        incrementer = 0
+        for index in self.index.indices:
+            incrementer += 1
+            if index != None:
+                index.findAndChange(newRecord,RID)
