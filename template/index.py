@@ -169,7 +169,6 @@ class BNode:
     def _findAndChange(self, newRecord, RID):
         for i in range(len(self.data)):
             if self.data[i][-1] == RID:
-                foundCounter = 1
                 self.data[i] = newRecord
 
         for child in self.child:
