@@ -167,10 +167,11 @@ class BNode:
         return returningData
 
     def _findAndChange(self, newRecord, RID):
-        for record in self.data:
-            if record[-1] == RID:
-                record = newRecord
-                break
+        for i in range(len(self.data)):
+            if self.data[i][-1] == RID:
+                foundCounter = 1
+                self.data[i] = newRecord
+
         for child in self.child:
             child._findAndChange(newRecord, RID)
 
@@ -225,4 +226,5 @@ class BTree:
         self.root._preorder()
 
     def findAndChange(self, record, RID):
-        self.root._findAndChange(record,RID)
+        if self.root != None:
+            self.root._findAndChange(record,RID)

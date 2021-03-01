@@ -221,7 +221,7 @@ class Table:
 
 
         if self.index:
-            self.indexUpdate(baseRID)
+            self.indexDelete(baseRID)
 
     def invalidateTailRecords(self, indirectionRID, baseRID, selectedPageRange):
         if indirectionRID == baseRID:
@@ -529,7 +529,7 @@ class Table:
                 index.findAndChange(newRecord,record[RID_COLUMN])
 
     def indexDelete(self,RID):
-        newRecord = None
+        newRecord = [-1,-1,-1,-1,-1,-1]
         incrementer = 0
         for index in self.index.indices:
             incrementer += 1

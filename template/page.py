@@ -37,6 +37,14 @@ class Page:
             record.append(dataColumn.read(offset))
         return record
 
+    def getAllRecords(self):
+        records = []
+        recordsPerPage = int(ElementsPerPhysicalPage)
+        for i in range(0, self.num_records):
+            record = self.getRecord(i)
+            records.append(self.getRecord(i))
+        return records
+        
     def getAllRecordsReversed(self):
         records = []
         recordsPerPage = int(ElementsPerPhysicalPage)
