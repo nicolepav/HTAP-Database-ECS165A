@@ -97,7 +97,6 @@ class Table:
         mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
         returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
 
-        BPindex = BP.pathInBP(BasePagePath)
         BP.bufferpool[BPindex].pinned -=1
         return [Record(mostUpdatedRecord.rid, mostUpdatedRecord.key, returned_record_columns)]
 
