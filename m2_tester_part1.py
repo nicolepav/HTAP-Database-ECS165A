@@ -1,8 +1,6 @@
 from template.db import Database
 from template.query import Query
 from template.config import init
-from template.index import Index
-from time import process_time
 
 from random import choice, randint, sample, seed
 init()
@@ -12,11 +10,11 @@ db.open('./ECS165')
 
 grades_table = db.create_table('Grades', 5, 0)
 query = Query(grades_table)
-index = Index(grades_table)
+
 # repopulate with random data
 records = {}
 seed(3562901)
-for i in range(0, 10000):
+for i in range(0, 1000):
     key = 92106429 + i
     records[key] = [key, randint(0, 20), randint(0, 20), randint(0, 20), randint(0, 20)]
     query.insert(*records[key])
@@ -35,7 +33,6 @@ for key in keys:
     #     print('select on', key, ':', record)
 print("Select finished")
 
-update_time_0 = process_time()
 for _ in range(10):
     for key in keys:
         updated_columns = [None, None, None, None, None]
@@ -55,8 +52,7 @@ for _ in range(10):
             # else:
             #     print('update on', original, 'and', updated_columns, ':', record)
             updated_columns[i] = None
-update_time_1 = process_time()
-print("Updating took:  \t\t\t", update_time_1 - update_time_0)
+print("Update finished")
 
 for i in range(0, 100):
     r = sorted(sample(range(0, len(keys)), 2))
