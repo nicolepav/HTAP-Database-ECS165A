@@ -37,7 +37,7 @@ class Database():
     def create_table(self, name, num_columns, key):
         Tablepath = self.path + "/table_" + name
         if os.path.exists(Tablepath):
-            shutil.rmtree(Tablepath)
+            raise Exception("Table already exists!")
         os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
