@@ -14,7 +14,7 @@ PhysicalPageBytes = 4096
 ElementsPerPhysicalPage = int(PhysicalPageBytes /  BytesPerElement)
 MetaElements = 4
 # When we get 10 filled up tail pages, merge
-MergePolicy = 10
+MergePolicy = 25
 PagesPerPageRange = 16
 # records per base page * number of base pages per range = records per page range
 RecordsPerPageRange = int(PagesPerPageRange * ElementsPerPhysicalPage)
@@ -81,7 +81,6 @@ class Bufferpool():
         for index, spot in enumerate(self.bufferpool):
             if not spot is None:
                 if (spot.path == path):
-                    # self.refresh(index) #on the way in, we set the age to 1 and update the other ages
                     return index
         return None
 
