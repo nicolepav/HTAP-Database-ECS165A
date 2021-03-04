@@ -44,7 +44,7 @@ deleted_keys = sample(keys, 100)
 for key in deleted_keys:
     query.delete(key)
     records.pop(key, None)
-
+print("Delete Finished")
 for i in range(0, 100):
     r = sorted(sample(range(0, len(keys)), 2))
     column_sum = sum(map(lambda x: records[x][0] if x in records else 0, keys[r[0]: r[1] + 1]))

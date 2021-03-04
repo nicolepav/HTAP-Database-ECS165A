@@ -12,230 +12,13 @@ INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
 SCHEMA_ENCODING_COLUMN = 3
+BASE_RID = 4
 
 class Record:
     def __init__(self, rid, key, columns):
         self.rid = rid
         self.key = key
         self.columns = columns
-
-class PageRange:
-    def __init__(self):
-        self.basePages = []
-        self.tailPages = []
-        self.tailRID = -1
-        self.numMerges = 0
-        pass
-
-    # insert operation into base or tail page:
-    # 1. create 1st page if needed or if page list is full, create new page
-    # 2. else insert into page list
-    def baseInsert(self, RID, recordData):
-        # 1.
-        if not self.basePages or self.basePages[-1].isFull():
-            newPage = BasePage(len(recordData))
-            newPage.insert(RID, recordData)
-            self.basePages.append(newPage)
-        # 2.
-        else:
-            self.basePages[-1].insert(RID, recordData)
-
-    # Similar to baseInsert but takes in record with meta data and data
-    # and does a full insert of meta data and data
-    # Accounts for merge if needed
-    def tailInsert(self, fullRecord):
-        if not self.tailPages or self.tailPages[-1].isFull():
-            if len(self.tailPages) == MergePolicy:
-                self.initiateMerge()
-            # only want len(dataColumns) for Page Instantiation
-            newPage = TailPage(len(fullRecord) - MetaElements)
-            newPage.insert(fullRecord)
-            self.tailPages.append(newPage)
-        else:
-            self.tailPages[-1].insert(fullRecord)
-
-    # 1. Copy base pages
-    # 2. When backgroundThread returns, only copy mergedPages data into our current basePages
-    # 3. Remove merged tail pages
-    def initiateMerge(self):
-        copiedBasePages = copy.deepcopy(self.basePages)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            backgroundThread = executor.submit(self.performMerge, copiedBasePages, self.tailPages)
-            mergedPages = backgroundThread.result()
-            for index, mergedBasePage in enumerate(mergedPages):
-                self.basePages[index].TPS = mergedBasePage.TPS
-                self.basePages[index].dataColumns = mergedBasePage.dataColumns
-            self.numMerges += 1
-            self.tailPages = self.tailPages[MergePolicy:]
-
-    # 1. For each base page
-        # a. Iterate through all base records and if updated, get tail page record
-        # b. Merge tail record into base record in BasePage object
-    # 2. return updated basePages
-    def performMerge(self, basePages, tailPages):
-        for basePage in basePages:
-            allBasePageRecords = basePage.getAllRecords()
-            for baseRecord in allBasePageRecords:
-                if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
-                    # updated record outside of page's we're currently merging
-                    if self.calculateTailPageIndex(baseRecord[INDIRECTION_COLUMN]) >= len(self.tailPages):
-                        continue
-                    tailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
-                    basePageOffset = self.calculatePageOffset(baseRecord[RID_COLUMN])
-                    basePage.mergeTailRecord(basePageOffset, tailRecord[RID_COLUMN], tailRecord[MetaElements:])
-                    mergedRecord = basePage.getRecord(basePageOffset)
-        return basePages
-
-    # single tail page cumulative update
-    # 1. Get the base record's page index, the record's offset, and record values
-    # 2. Create the cumulative record based off a. previous tail record or b. base record
-    #       a. Get previous tail record, update new record's indirection column, splice in previous tail record values
-    #       b. Splice base record into updatedRecord and update indirection column
-    # 3. Increment and insert the new cumulative record. Update base record meta data
-    def update(self, baseRID, updatedRecord):
-        # 1.
-        basePageIndex = self.calculateBasePageIndex(baseRID)
-        basePageOffset = self.calculatePageOffset(baseRID)
-        baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
-        # 2.
-        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1 and not self.recordHasBeenMerged(baseRecord, basePageIndex):
-            previousTailRecord = self.getPreviousTailRecord(baseRecord[INDIRECTION_COLUMN])
-            cumulativeRecord = self.spliceRecord(previousTailRecord, updatedRecord)
-            cumulativeRecord[INDIRECTION_COLUMN] = previousTailRecord[RID_COLUMN]
-        else:
-            cumulativeRecord = self.spliceRecord(baseRecord, updatedRecord)
-            cumulativeRecord[INDIRECTION_COLUMN] = baseRecord[RID_COLUMN]
-        # 3.
-        self.tailRID += 1
-        cumulativeRecord[RID_COLUMN] = self.tailRID
-        cumulativeRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
-        cumulativeRecord[SCHEMA_ENCODING_COLUMN] = 1
-
-        self.basePages[basePageIndex].newRecordAppended(self.tailRID, basePageOffset)
-        self.tailInsert(cumulativeRecord)
-
-    def getPreviousTailRecord(self, baseIndirectionRID):
-        previousTailPageIndex = self.calculateTailPageIndex(baseIndirectionRID)
-        previousTailPageOffset = self.calculatePageOffset(baseIndirectionRID)
-        previouslyUpdatedRecord = self.tailPages[previousTailPageIndex].getRecord(previousTailPageOffset)
-        return previouslyUpdatedRecord
-
-    # Returns record objects
-    # 1. Same as self.update step 1.
-    # 2. Setup record object
-    def select(self, key, baseRID):
-        basePageIndex = self.calculateBasePageIndex(baseRID)
-        basePageOffset = self.calculatePageOffset(baseRID)
-        baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
-        baseIndirectionRID = baseRecord[INDIRECTION_COLUMN]
-        schemaBit = baseRecord[SCHEMA_ENCODING_COLUMN]
-        if schemaBit == 1 and not self.recordHasBeenMerged(baseRecord, basePageIndex):
-            tailPageIndex = self.calculateTailPageIndex(baseIndirectionRID)
-            tailPageOffset = self.calculatePageOffset(baseIndirectionRID)
-            tailRecord = self.tailPages[tailPageIndex].getRecord(tailPageOffset)
-            record = Record(tailRecord[RID_COLUMN], key, tailRecord[MetaElements:])
-            return record
-        else:
-            record = Record(baseRecord[RID_COLUMN], key, baseRecord[MetaElements:])
-            return record
-
-    # 1. Invalidate base record
-    # 2. Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
-    def delete(self, key, baseRID):
-        # 1.
-        basePageIndex = self.calculateBasePageIndex(baseRID)
-        basePageOffset = self.calculatePageOffset(baseRID)
-        baseRecord = self.basePages[basePageIndex].getRecord(basePageOffset)
-        self.basePages[basePageIndex].invalidateRecord(basePageOffset)
-        # 2.
-        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
-            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID)
-
-    def invalidateTailRecords(self, indirectionRID, baseIndirectionRID):
-        if indirectionRID == baseIndirectionRID:
-            return
-        else:
-            pageIndex = self.calculateTailPageIndex(indirectionRID)
-            pageOffset = self.calculatePageOffset(indirectionRID)
-            # Check to see if page already removed and return if so
-            if pageIndex < 0 or pageIndex >= len(self.tailPages):
-                return
-            try:
-                nextRID = self.tailPages[pageIndex].invalidateRecord(pageOffset)
-                self.invalidateTailRecords(nextRID, baseIndirectionRID)
-            except:
-                print("race case occurred?")
-
-    # Base record's indirection is pointing to a record that's already been merged
-    def recordHasBeenMerged(self, baseRecord, basePageIndex):
-        if baseRecord[INDIRECTION_COLUMN] <= self.basePages[basePageIndex].TPS:
-            return True
-        return False
-
-    def calculateBasePageIndex(self, baseRID):
-        pageRange = 0
-        while baseRID >= RecordsPerPageRange:
-            baseRID -= RecordsPerPageRange
-        while baseRID >= ElementsPerPhysicalPage:
-            pageRange += 1
-            baseRID -= ElementsPerPhysicalPage
-        return pageRange
-
-    def calculateTailPageIndex(self, tailRID):
-        pageIndex = 0
-        while tailRID >= RecordsPerPageRange:
-            pageIndex += PagesPerPageRange
-            tailRID -= RecordsPerPageRange
-        while tailRID >= ElementsPerPhysicalPage:
-            pageIndex += 1
-            tailRID -= ElementsPerPhysicalPage
-        # each time we merge, our pageIndex calculations will be off by: numMerges * MergedPolicy
-        return pageIndex - self.numMerges * MergePolicy
-
-    # translate RID to actual pageOffset
-    def calculatePageOffset(self, RID):
-        offset = RID
-        while offset >= RecordsPerPageRange:
-            offset -= RecordsPerPageRange
-        while offset >= ElementsPerPhysicalPage:
-            offset -= ElementsPerPhysicalPage
-        return offset
-
-    # Cumulative splicing
-    def spliceRecord(self, oldRecord, updatedRecord):
-        createdRecord = []
-        for metaIndex in range(0, MetaElements):
-            createdRecord.append(oldRecord[metaIndex])
-        for columnIndex in range(0, len(updatedRecord)):
-            #use data from the oldRecord
-            if updatedRecord[columnIndex] == None:
-                createdRecord.append(oldRecord[columnIndex + 4])
-            else:
-                createdRecord.append(updatedRecord[columnIndex])
-        return createdRecord
-
-
-    def open(self, path):
-        pass
-
-    def close(self, path):
-        # path look like "./ECS165/table_<table.name>/pageRange_<pageRange index>"
-
-        # we want pageRange.close to store the contents of the pageRange to a pageRange directory
-
-        for index, basePage in enumerate(self.basePages):
-            # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
-            basePagesDirPath = path + "/basePage_" + str(index)
-            if not os.path.exists(basePagesDirPath):
-                os.mkdir(basePagesDirPath)
-            basePage.writeToDisk(basePagesDirPath)
-        for index, tailPage in enumerate(self.tailPages):
-            # we want basePage.writeToDisk to store the contents of the basePage to a Page directory
-            tailPagesDirPath = path + "/tailPage_" + str(index)
-            if not os.path.exists(tailPagesDirPath):
-                os.mkdir(tailPagesDirPath)
-            tailPage.writeToDisk(tailPagesDirPath)
-        pass
 
 class Table:
     """
@@ -246,20 +29,19 @@ class Table:
     :variable baseRID           #The current RID used to store a new base record
     :variable tailRID           #The current RID used for updating a base record, used for tail record
     """
-    def __init__(self, name, num_columns, key):
+    
+    def __init__(self, name, num_columns, key, path = "./", baseRID = -1, tailRIDs = [], keyToRID = {}, numMerges = 0):
         self.name = name
         self.key = key
         self.num_columns = num_columns
-        # add page range to page directory
-        self.page_directory = [PageRange()]
         # map key to RID for query operations
-        self.keyToRID = {}
-        self.baseRID = -1
-        self.index = Index(self)
-        pass
-
-    def __merge(self):
-        pass
+        self.path = path
+        self.baseRID = baseRID
+        self.keyToRID = keyToRID
+        self.index = None
+        self.numMerges = numMerges
+        # new tailRID array, each element holds the tailRID of each Page Range.
+        self.tailRIDs = tailRIDs
 
     # Calls insert on the correct page range
     # 1. updates baseRID and maps to key
@@ -272,10 +54,26 @@ class Table:
         self.keyToRID[key] = self.baseRID
         # 2.
         selectedPageRange = self.getPageRange(self.baseRID)
-        if selectedPageRange >= len(self.page_directory):
-            self.page_directory.append(PageRange())
-        # 3.
-        self.page_directory[selectedPageRange].baseInsert(self.baseRID, record)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        BasePagePath = self.getBasePagePath(self.baseRID)
+
+        BPindex = BP.pathInBP(BasePagePath)
+        # Page not in bufferpool
+        if BPindex is None:
+            # recreate page
+            page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
+            # Create folder if needed
+            if os.path.exists(BasePagePath):
+                page.readPageFromDisk(BasePagePath)
+            # add to bufferpool
+            BPindex = BP.add(page)
+        # Get page location in bufferpool
+        else:
+            BPindex = BP.refresh(BPindex)
+        BP.bufferpool[BPindex].insert(self.baseRID, record)
+        self.finishedModifyingRecord(BPindex)
+        if self.index:
+            self.indexInsert(record)
 
     # Similar to insert steps but calls update at end and doesn't check page range (TODO can a page range contain any number of tail pages?)
     def update(self, key, record):
@@ -283,18 +81,115 @@ class Table:
             print("No RID found for this key")
             return False
         baseRID = self.keyToRID[key]
-        selectedPageRange  = self.getPageRange(baseRID)
-        self.page_directory[selectedPageRange].update(baseRID, record)
-        return True
+        selectedPageRange = self.getPageRange(baseRID)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        BasePagePath = self.getBasePagePath(baseRID)
 
-    # m1_tester expects a list of record objects, but we should only be passing back certain columns
-    def select(self, key, column, query_columns):
+        BPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
+        basePageOffset = self.calculatePageOffset(baseRID)
+        baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
+
+        if baseRecord[RID_COLUMN] == INVALID:
+            BP.bufferpool[BPindex].pinned -=1
+            return False
+
+        mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
+        returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
+
+        BP.bufferpool[BPindex].pinned -=1
+        return [Record(mostUpdatedRecord.rid, mostUpdatedRecord.key, returned_record_columns)]
+
+    # 1. Pull base record into BP if needed so we can get the record and update base record data/bp status
+    # 2. Get the most updated tail record into BP so that we can create cumulative record
+    # 3. Add tail page to BP if needed and insert the cumulative tail record into latest tail page
+    # 4/5. Check if a merge should occur and udpate index
+    def update(self, key, record):
         if key not in self.keyToRID:
             print("No RID found for this key")
             return False
+        # 1.
         baseRID = self.keyToRID[key]
-        selectedPageRange  = self.getPageRange(baseRID)
-        record = self.page_directory[selectedPageRange].select(key, baseRID)
+        selectedPageRange = self.getPageRange(baseRID)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        BasePagePath = self.getBasePagePath(baseRID)
+        baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
+        basePageOffset = self.calculatePageOffset(baseRID)
+        baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
+
+        if baseRecord[RID_COLUMN] == INVALID:
+            BP.bufferpool[baseBPindex].pinned -=1
+            return False
+
+        self.tailRIDs[selectedPageRange] += 1
+        BP.bufferpool[baseBPindex].newRecordAppended(self.tailRIDs[selectedPageRange], basePageOffset)
+        self.finishedModifyingRecord(baseBPindex)
+        # 2.
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1 and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[baseBPindex].TPS):
+            previousTailRecord = self.getPreviousTailRecord(baseRecord, selectedPageRange)
+            cumulativeRecord = self.createCumulativeRecord(previousTailRecord, record, previousTailRecord[RID_COLUMN], baseRecord[RID_COLUMN], selectedPageRange, MetaElements + 1)
+        else:
+            cumulativeRecord = self.createCumulativeRecord(baseRecord, record, baseRecord[RID_COLUMN], baseRecord[RID_COLUMN], selectedPageRange, MetaElements)
+        # 3.
+        TailPagePath = self.getTailPagePath(self.tailRIDs[selectedPageRange], selectedPageRange)
+        tailBPindex = self.getTailPageBufferIndex(selectedPageRange, TailPagePath)
+        BP.bufferpool[tailBPindex].insert(cumulativeRecord)
+        self.finishedModifyingRecord(tailBPindex)
+        # 4.
+        if self.numMerges == 0 and self.calculateTailPageIndex(self.tailRIDs[selectedPageRange]) >= MergePolicy:
+            self.initiateMerge(selectedPageRange)
+        elif self.numMerges > 0 and self.calculateTailPageIndex(self.tailRIDs[selectedPageRange]) >= self.numMerges * MergePolicy + MergePolicy:
+            self.initiateMerge(selectedPageRange)
+        # 5.
+        if self.index:
+            self.indexUpdate(cumulativeRecord)
+        return True
+
+    def finishedModifyingRecord(self, BPindex):
+        BP.bufferpool[BPindex].dirty = True
+        BP.bufferpool[BPindex].pinned -= 1
+
+    def sum(self, start_range, end_range, aggregate_column_index):
+        summation = 0
+        none_in_range = True
+        for key in range(start_range, end_range + 1):
+            if key not in self.keyToRID:
+                continue
+            baseRID = self.keyToRID[key]
+            selectedPageRange = self.getPageRange(baseRID)
+            PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+            BasePagePath = self.getBasePagePath(baseRID)
+
+            BPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
+
+            basePageOffset = self.calculatePageOffset(baseRID)
+            baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
+
+            if baseRecord[RID_COLUMN] == INVALID:
+                BP.bufferpool[BPindex].pinned -=1
+                continue
+
+            mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
+            query_columns = [1, 1, 1, 1, 1]
+            returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
+
+            BP.bufferpool[BPindex].pinned -=1
+
+            none_in_range = False
+            summation += mostUpdatedRecord.columns[aggregate_column_index]
+        if (none_in_range):
+            return False
+        else:
+            return summation
+
+    def getMostUpdatedRecord(self, baseRecord, BPindex, selectedPageRange, key):
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1 and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[BPindex].TPS):
+            previousTailRecord = self.getPreviousTailRecord(baseRecord, selectedPageRange)
+            record = Record(previousTailRecord[RID_COLUMN], key, previousTailRecord[MetaElements + 1:])
+        else:
+            record = Record(baseRecord[RID_COLUMN], key, baseRecord[MetaElements:])
+        return record
+
+    def setupReturnedRecord(self, record, query_columns):
         returned_record_columns = []
         for query_column in range(len(query_columns)):
             if (query_columns[query_column] == 1):
@@ -309,7 +204,43 @@ class Table:
             return False
         baseRID = self.keyToRID[key]
         selectedPageRange = self.getPageRange(baseRID)
-        self.page_directory[selectedPageRange].delete(key, baseRID)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        BasePagePath = self.getBasePagePath(baseRID)
+        baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
+        basePageOffset = self.calculatePageOffset(baseRID)
+        baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
+
+        # Invalidate base record
+        BP.bufferpool[baseBPindex].invalidateRecord(basePageOffset)
+        self.finishedModifyingRecord(baseBPindex)
+
+        # Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
+        if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
+            self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID, selectedPageRange)
+
+
+        if self.index:
+            self.indexDelete(baseRID)
+
+    def invalidateTailRecords(self, indirectionRID, baseRID, selectedPageRange):
+        if indirectionRID == baseRID:
+            return
+        else:
+            pageOffset = self.calculatePageOffset(indirectionRID)
+            TailPagePath = self.getTailPagePath(indirectionRID, selectedPageRange)
+            tailBPindex = BP.pathInBP(TailPagePath)
+            if tailBPindex is None:
+                # here we know that the page is not in the bufferpool (So the page exists only on disk)
+                page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+                page.readPageFromDisk(TailPagePath)
+                tailBPindex = BP.add(page)
+            else:
+                # here the page is in the bufferpool, so we will refresh it.
+                tailBPindex = BP.refresh(tailBPindex)
+
+            nextRID = BP.bufferpool[tailBPindex].invalidateRecord(pageOffset)
+            self.finishedModifyingRecord(tailBPindex)
+            self.invalidateTailRecords(nextRID, baseRID, selectedPageRange)
 
     def sum(self, start_range, end_range, aggregate_column_index):
         summation = 0
@@ -318,29 +249,40 @@ class Table:
             if key not in self.keyToRID:
                 record = False
             else:
-                baseRID = self.keyToRID[key]
-                selectedPageRange  = self.getPageRange(baseRID)
-                record = self.page_directory[selectedPageRange].select(key, baseRID)
-                none_in_range = False
-                summation += record.columns[aggregate_column_index]
-        if (none_in_range):
-            return False
+                # the path does exist, so go read the basepage from disk
+                page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+                page.readPageFromDisk(TailPagePath)
+                BPindex = BP.add(page)
         else:
-            return summation
+            # here the page is in the bufferpool, so we will refresh it.
+            BPindex = BP.refresh(BPindex)
+        return BPindex
 
-    def getPageRange(self, baseRID):
-        return floor(baseRID / RecordsPerPageRange)
+    def getTailPagePath(self, tailRID, selectedPageRange):
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        selectedTailPage = self.calculateTailPageIndex(tailRID)
+        TailPagePath = PageRangePath + "/tailPage_" + str(selectedTailPage)
+        return TailPagePath
+
+    def getPreviousTailRecord(self, baseRecord, selectedPageRange):
+        previousTailPagePath = self.getTailPagePath(baseRecord[INDIRECTION_COLUMN], selectedPageRange)
+        previousBufferIndex = self.getTailPageBufferIndex(selectedPageRange, previousTailPagePath)
+        previousTailPageOffset = self.calculatePageOffset(baseRecord[INDIRECTION_COLUMN])
+        previousTailRecord = BP.bufferpool[previousBufferIndex].getRecord(previousTailPageOffset)
+        BP.bufferpool[previousBufferIndex].pinned -= 1
+        return previousTailRecord
 
     def writeMetaJsonToDisk(self, path):
         MetaJsonPath = path + "/Meta.json"
         f = open(MetaJsonPath, "w")
         metaDictionary = {
-            "name": self.name, 
+            "name": self.name,
             "key": self.key,
             "num_columns": self.num_columns,
             "baseRID": self.baseRID,
-            "keyToRID": self.keyToRID
-            # "index": self.index # python doesn't like this
+            "keyToRID": self.keyToRID,
+            "tailRIDs": self.tailRIDs,
+            "numMerges": self.numMerges
         }
         json.dump(metaDictionary, f, indent=4)
         f.close()
@@ -357,23 +299,202 @@ class Table:
     def open(self, path):
         # path look like "./ECS165/table_1"
 
-        # metaDictionary = self.readMetaJsonFromDisk(path)
+    def calculateTailPageIndex(self, tailRID):
+        pageIndex = 0
+        while tailRID >= RecordsPerPageRange:
+            pageIndex += PagesPerPageRange
+            tailRID -= RecordsPerPageRange
+        while tailRID >= ElementsPerPhysicalPage:
+            pageIndex += 1
+            tailRID -= ElementsPerPhysicalPage
+        return pageIndex
+
+    # 1. Call perform merge on background thread
+    # 2. Have BP only write metaData pages for any pages currently being merged which are also in the BP still
+    # 3. Replace all returned consolidated base page data pages and Page_Meta at the path
+    def initiateMerge(self, pageRange):
+        # 1.
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            backgroundThread = executor.submit(self.performMerge, pageRange)
+            mergedBasePages = backgroundThread.result()
+            if mergedBasePages == None:
+                return
+            for mergedBasePage in mergedBasePages:
+                BPIndex = BP.pathInBP(mergedBasePage.path)
+                # 2.
+                if BPIndex != None:
+                    BP.bufferpool[BPIndex].consolidated = True
+                # 3.
+                mergedBasePage.writeDataToDisk(mergedBasePage.path)
+            self.numMerges += 1
+
+    # 1. Recreate all full base pages and tail pages
+    #   a. if tail pages haven't been written out yet, don't perform (see function for more in-depth explanation)
+    # 2. Map base pages to their path and keep track of updatedBaseRecords
+    # 3. Iterate through reversed tail records
+    #   a. Keep track of seen base records so they only get updated once
+    # 4. Get base record by matching paths with tail records baseRID and update with tail page data
+    def performMerge(self, pageRange):
+        # 1.
+        basePages = self.getAllFullBasePages(pageRange)
+        tailPages = self.getAllFullTailPagesReversed(pageRange)
+        if tailPages == None:
+            return None
+        # 2.
+        updatedBaseRecords = set()
+        mappedBasePages = {}
+        for basePage in basePages:
+            mappedBasePages[basePage.path] = basePage
+        # 3.
+        for tailPage in tailPages:
+            allTailRecords = tailPage.getAllRecordsReversed()
+            for tailRecord in allTailRecords:
+                # 3a.
+                if tailRecord[BASE_RID] in updatedBaseRecords:
+                    continue
+                else:
+                    updatedBaseRecords.add(tailRecord[BASE_RID])
+                # 4.
+                basePagePath = self.getBasePagePath(tailRecord[BASE_RID])
+                if basePagePath in mappedBasePages:
+                    basePage = mappedBasePages[basePagePath]
+                    pageOffset = self.calculatePageOffset(tailRecord[BASE_RID])
+                    basePage.mergeTailRecord(pageOffset, tailRecord[RID_COLUMN], tailRecord[tailPage.numMetaElements():])
+        return basePages
 
         # we want table.open to populate the table with the data in the given table directory path
 
         pass
 
-    def close(self, path):
-        # path look like "./ECS165/table_1"
-        
-        self.writeMetaJsonToDisk(path)
+    # 1. If base page not committed yet, don't add to merge queue (dir path doesn't exist)
+    # 2. Check if base page is full and therefore eligible for merge
+    # 3. Return list of full base pages
+    def getAllFullBasePages(self, selectedPageRange):
+        allFullBasePages = []
+        # iterate from 0 to most recently updated pageRange (handle case for only 1 pageRange)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        for selectedBasePage in range(0, self.calculateBasePageIndex(self.baseRID) + 1):
+            BasePagePath = PageRangePath + "/basePage_" + str(selectedBasePage)
+            # 1.
+            if not os.path.exists(BasePagePath):
+                continue
+            # 2.
+            MetaPagePath = BasePagePath + "/Page_Meta.json"
+            f = open(MetaPagePath, "r")
+            metaDictionary = json.load(f)
+            f.close()
+            if ElementsPerPhysicalPage != metaDictionary["num_records"]:
+                continue
+            # 3.
+            else:
+                allFullBasePages.append(self.getBasePage(selectedPageRange, BasePagePath))
+        return allFullBasePages
+
+    # 1. Iterate in reverse from self.numMerges * MergePolicy + MergePolicy - 1 through self.numMerges * MergePolicy (9-0, 19-10, etc.)
+    # 2. If tail page in range not committed yet (dir path doesn't exist), don't perform merge
+    def getAllFullTailPagesReversed(self, selectedPageRange):
+        allFullTailPages = []
+        # 1.
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        for selectedTailPage in range(self.numMerges * MergePolicy + MergePolicy, self.numMerges * MergePolicy - 1, -1):
+            TailPagePath = PageRangePath + "/tailPage_" + str(selectedTailPage)
+            # 2. Tail page in range not committed yet, don't perform merge
+            if not os.path.isdir(TailPagePath):
+                return None
+            allFullTailPages.append(self.getTailPage(selectedPageRange, TailPagePath))
+        return allFullTailPages
+
+    # Getting pages outside of bufferpool for merge
+    def getTailPage(self, selectedPageRange, TailPagePath):
+        page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+        page.readPageFromDisk(TailPagePath)
+        return page
+
+    # Getting pages outside of bufferpool for merge
+    def getBasePage(self, selectedPageRange, BasePagePath):
+        page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
+        page.readPageFromDisk(BasePagePath)
+        return page
+
+    def getPageRange(self, baseRID):
+        return floor(baseRID / RecordsPerPageRange)
 
         # we want table.close to store the contents of the table to a table directory
 
-        for index, pageRange in enumerate(self.page_directory):
-            # we want pageRange.close to store the contents of the pageRange to a pageRange directory
-            pageRangeDirPath = path + "/pageRange_" + str(index)
-            if not os.path.exists(pageRangeDirPath):
-                os.mkdir(pageRangeDirPath)
-            pageRange.close(pageRangeDirPath)
-        pass
+    # Cumulative splicing
+    def createCumulativeRecord(self, oldRecord, updatedRecord, indirectionColumn, baseRID, selectedPageRange, NumMetaElements):
+        createdRecord = []
+        for metaIndex in range(0, MetaElements + 1):
+            createdRecord.append(0)
+        createdRecord[INDIRECTION_COLUMN] = indirectionColumn
+        createdRecord[RID_COLUMN] = self.tailRIDs[selectedPageRange]
+        createdRecord[TIMESTAMP_COLUMN] = round(time.time() * 1000)
+        createdRecord[SCHEMA_ENCODING_COLUMN] = 1
+        createdRecord[BASE_RID] = baseRID
+        for columnIndex in range(0, len(updatedRecord)):
+            #use data from the oldRecord
+            if updatedRecord[columnIndex] == None:
+                createdRecord.append(oldRecord[columnIndex + NumMetaElements])
+            else:
+                createdRecord.append(updatedRecord[columnIndex])
+        return createdRecord
+
+    def getAllUpdatedRecords(self):
+        allRecords = []
+        for selectedPageRange in range(0, self.getPageRange(self.baseRID) + 1):
+            PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+            for selectedBasePage in range(0, self.calculateBasePageIndex(self.baseRID) + 1):
+                BasePagePath = PageRangePath + "/basePage_" + str(selectedBasePage)
+                BPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
+                for baseRecord in BP.bufferpool[BPindex].getAllRecords():
+                    if baseRecord[RID_COLUMN] == INVALID:
+                        continue
+
+                    #check for tail page
+                    if baseRecord[INDIRECTION_COLUMN] != 0:
+                        tailIndex = self.calculateTailPageIndex(baseRecord[INDIRECTION_COLUMN])
+                        TailPagePath = PageRangePath + "/tailPage_" + str(tailIndex)
+
+                        tailBPindex = BP.pathInBP(TailPagePath)
+                        if tailBPindex is None:
+                            # the path does exist, so go read the basepage from disk
+                            page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+                            page.readPageFromDisk(TailPagePath)
+                            tailBPindex = BP.add(page)
+                        else:
+                            # here the page is in the bufferpool, so we will refresh it.
+                            tailBPindex = BP.refresh(tailBPindex)
+
+                        for tailRecord in BP.bufferpool[tailBPindex].getAllRecords():
+                            if (tailRecord[RID_COLUMN] == baseRecord[INDIRECTION_COLUMN]):
+                                allRecords.append(tailRecord)
+                            elif baseRecord[INDIRECTION_COLUMN] == 0:
+                                allRecords.append(baseRecord)
+                        BP.bufferpool[tailBPindex].pinned -= 1
+                BP.bufferpool[BPindex].pinned -=1
+        return allRecords
+
+    def indexInsert(self, record):
+        RID = self.baseRID 
+        newRecord = [record[0],record[1],record[2],record[3],record[4], RID]
+        incrementer = 0
+        for index in self.index.indices:
+            incrementer += 1
+            if index != None:
+                index.insert(newRecord,incrementer)
+
+    def indexUpdate(self, record):
+        newRecord = [record[5],record[6],record[7],record[8],record[9], record[RID_COLUMN]]
+        incrementer = 0
+        for index in self.index.indices:
+            incrementer += 1
+            if index != None:
+                index.findAndChange(newRecord,record[RID_COLUMN])
+
+    def indexDelete(self,RID):
+        newRecord = [-1,-1,-1,-1,-1,-1]
+        incrementer = 0
+        for index in self.index.indices:
+            incrementer += 1
+            if index != None:
+                index.findAndChange(newRecord,RID)

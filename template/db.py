@@ -6,8 +6,7 @@ class Database():
 
     def __init__(self):
         self.tables = []
-        self.path = None
-        pass
+        self.path = path
 
     def open(self, path):
         if path == None:
@@ -15,31 +14,6 @@ class Database():
         if not os.path.exists(path):
             os.mkdir(path)
         self.path = path
-
-        # put the tables found at the self.path into the bufferpool (aka load it into ram)
-
-        # for each table directory in the database directory,
-        for tableDir in [dI for dI in os.listdir(path) if os.path.isdir(os.path.join(path,dI))]:
-            tableDirPath = self.path + '/' + tableDir
-
-            # reads the stored Meta.json and returns the constructed Dictionary
-            MetaJsonPath = tableDirPath + "/Meta.json"
-            f = open(MetaJsonPath, "r")
-            metaDictionary = json.load(f)
-            f.close()
-            # metaDictionary is a dictionary filled with the table's meta info
-
-
-            print("Table Directory: " + tableDirPath)
-            print("MetaJson File:   " + MetaJsonPath)
-            # open the table directory, 
-                # can't use the table.open without first having a table object
-                # table = Table()
-                # we want table.open to populate the table with the data in the Table's Directory
-                # table.open(tableDirPath);
-            # then load the table directory to self.tables
-                # self.tables.append(table)
-        pass
 
     def close(self):
         if self.path == None:
@@ -55,7 +29,6 @@ class Database():
             if not os.path.exists(tableDirPath):
                 os.mkdir(tableDirPath)
             table.close(tableDirPath)
-        pass
 
     """
     # Creates a new table
@@ -64,7 +37,11 @@ class Database():
     :param key: int             #Index of table key in columns
     """
     def create_table(self, name, num_columns, key):
-        table = Table(name, num_columns, key)
+        Tablepath = self.path + "/table_" + name
+        if os.path.exists(Tablepath):
+            raise Exception("Table already exists!")
+        os.mkdir(Tablepath)
+        table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)
         return table
 
@@ -82,4 +59,33 @@ class Database():
     def get_table(self, name):
         for table in self.tables:
             if table.name == name:
+                return table
+        # search for the table at the self.path on the disk
+        # for each table directory in the database directory,
+        tableName = "/table_" + name
+        for tableDir in [dI for dI in os.listdir(self.path) if os.path.isdir(os.path.join(self.path,dI))]:
+            tableDirPath = self.path + '/' + tableDir
+            if tableName in tableDirPath:
+                # get the table object
+                # reads the stored Meta.json and returns the constructed Dictionary
+                MetaJsonPath = tableDirPath + "/Meta.json"
+                f = open(MetaJsonPath, "r")
+                metaDictionary = json.load(f)
+                # json.decoder.JSONDecodeError: Expecting value: line 1008 column 16 (char 25009)
+                f.close()
+                # metaDictionary is a dictionary filled with the table's meta info
+                # open the table directory, 
+                    # can't use the table.open without first having a table object
+                table = Table(metaDictionary["name"],
+                    metaDictionary["num_columns"],
+                    metaDictionary["key"],
+                    tableDirPath,
+                    metaDictionary["baseRID"],
+                    metaDictionary["tailRIDs"],
+                    {int(k):v for k,v in metaDictionary["keyToRID"].items()},
+                    metaDictionary["numMerges"]
+                )
+                # we want table.open to populate the table with the data in the Table's Directory
+                # then load the table directory to self.tables
+                self.tables.append(table)
                 return table
