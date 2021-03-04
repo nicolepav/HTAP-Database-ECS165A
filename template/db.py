@@ -1,25 +1,27 @@
 from template.table import Table
-from template.page import *
-from template.config import *
 import os
 import json
-import shutil
-
 
 class Database():
 
-    def __init__(self, path='./ECS165'):
+    def __init__(self):
         self.tables = []
         self.path = path
 
     def open(self, path):
+        if path == None:
+            raise Exception("Open Error: there is no defined path.")
         if not os.path.exists(path):
             os.mkdir(path)
         self.path = path
 
     def close(self):
+        if self.path == None:
+            raise Exception("Close Error: there is no defined path.")
         if not os.path.exists(self.path):
             raise Exception("Close Error: there is no file at this path.")
+
+        # How should we deal with old tables? (is this even something we need to do?)
 
         for table in self.tables:
             # we want table.close to store the contents of the table to a table directory
@@ -50,11 +52,6 @@ class Database():
         for table in self.tables:
             if table.name == name:
                 del table
-        Tablepath = self.path + "/table_" + name
-        DroppedTablePath = self.path + "/DROPPED_table_" + name
-        if os.path.exists(Tablepath):
-            os.rename(Tablepath, DroppedTablePath)
-
 
     """
     # Returns table with the passed name

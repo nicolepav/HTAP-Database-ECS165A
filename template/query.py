@@ -1,8 +1,6 @@
 from template.table import Table, Record
 from template.index import Index
-from template.config import *
 from math import floor
-import template.db
 
 
 class Query:
