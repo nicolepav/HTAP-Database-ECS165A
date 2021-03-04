@@ -1,3 +1,4 @@
+import os
 # Global Setting for the Database
 # PageSize, StartRID, etc..
 
@@ -10,7 +11,7 @@ def init():
 BytesPerElement = 8
 PhysicalPageBytes = 4096
 # aka records per base page
-ElementsPerPhysicalPage = PhysicalPageBytes /  BytesPerElement
+ElementsPerPhysicalPage = int(PhysicalPageBytes /  BytesPerElement)
 MetaElements = 4
 # When we get 10 filled up tail pages, merge
 MergePolicy = 25

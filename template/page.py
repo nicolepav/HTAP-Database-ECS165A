@@ -1,5 +1,7 @@
 from template.config import *
 import time
+import os
+import json
 
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
@@ -9,8 +11,7 @@ BASE_RID = 4
 
 # aka base/tail pages
 class Page:
-
-    def __init__(self, num_columns):
+    def __init__(self, num_columns, PageRange, path):
         # 1. initialize meta columns
         self.metaColumns = []
         for i in range(0, MetaElements):
@@ -19,9 +20,11 @@ class Page:
         self.dataColumns = []
         for columns in range(0, num_columns):
             self.dataColumns.append(PhysicalPage())
-        self.numrecords = 0
+        self.num_records = 0
 
         # still need to implement this logic
+        self.PageRange = PageRange
+        self.path = path
         self.dirty = False
         self.pinned = 0
         self.age = 1
@@ -109,7 +112,7 @@ class Page:
                 self.insertData(dataColumn, PhysicalPagePath, numMetaElements)
 
 class BasePage(Page):
-    def __init__(self, num_columns):
+    def __init__(self, num_columns, PageRange, path):
         # 1. initialize meta columns
         self.TPS = -1
         self.metaColumns = []
@@ -122,6 +125,8 @@ class BasePage(Page):
         self.num_records = 0
 
         # still need to implement this logic (what about for merge?)
+        self.PageRange = PageRange
+        self.path = path
         self.dirty = False
         self.pinned = 0
         # only updated when in bufferpool
@@ -190,8 +195,9 @@ class BasePage(Page):
             self.dataColumns[dataIndex].writeToDisk(PhysicalPagePath)
             index += 1
 
+
 class TailPage(Page):
-    def __init__(self, num_columns):
+    def __init__(self, num_columns, PageRange, path):
         # 1. initialize meta columns
         self.metaColumns = []
         for i in range(0, self.numMetaElements()):
@@ -203,6 +209,8 @@ class TailPage(Page):
         self.num_records = 0
 
         # still need to implement this logic
+        self.PageRange = PageRange
+        self.path = path
         self.dirty = False
         self.pinned = 0
         self.consolidated = False
@@ -247,8 +255,8 @@ class PhysicalPage:
         self.data = bytearray()
 
     def appendData(self, value):
-        # append and element to the Physical Page (isFull() checks if there is capacity before calling)
         self.data += value.to_bytes(BytesPerElement, byteorder='big')
+        pass
 
     def read(self, location):
         # location should be the element value between 0 and 511 (ElementsPerPhysicalPage)
@@ -268,11 +276,11 @@ class PhysicalPage:
         self.data[(byte_location):(byte_location + BytesPerElement)] = value.to_bytes(BytesPerElement, byteorder='big')
 
     def writeToDisk(self, path):
-        f = open(path, "w+b")
+        f = open(path, "wb")
         f.write(self.data)
         f.close()
 
     def readFromDisk(self, path):
-        f = open(path, "w+b")
-        self.data = f.read()
+        f = open(path, "rb")
+        self.data = bytearray(f.read())
         f.close()
