@@ -13,9 +13,8 @@ query = Query(grades_table)
 
 # repopulate with random data
 records = {}
-query.create_index(2)
 seed(3562901)
-for i in range(0, 10):
+for i in range(0, 1000):
     key = 92106429 + i
     records[key] = [key, randint(0, 20), randint(0, 20), randint(0, 20), randint(0, 20)]
     query.insert(*records[key])
@@ -29,9 +28,9 @@ for key in keys:
         if column != records[key][i]:
             error = True
     if error:
-        print('select error on', key, ':', record.columns, ', correct:', records[key])
+        print('select error on', key, ':', record, ', correct:', records[key])
     # else:
-    #     print('select on', key, ':', record.columns)
+    #     print('select on', key, ':', record)
 print("Select finished")
 
 for _ in range(10):
@@ -49,7 +48,7 @@ for _ in range(10):
                 if column != records[key][j]:
                     error = True
             if error:
-                print('update error on', original, 'and', updated_columns, ':', record, ', correct:', records[key])
+                print('update error on', original, 'and', updated_columns, ':', record.columns, ', correct:', records[key])
             # else:
             #     print('update on', original, 'and', updated_columns, ':', record)
             updated_columns[i] = None
@@ -65,4 +64,3 @@ for i in range(0, 100):
     #     print('sum on [', keys[r[0]], ',', keys[r[1]], ']: ', column_sum)
 print("Aggregate finished")
 db.close()
-
