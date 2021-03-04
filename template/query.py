@@ -1,6 +1,8 @@
 from template.table import Table, Record
 from template.index import Index
+from template.config import *
 from math import floor
+import template.db
 
 
 class Query:
@@ -47,8 +49,13 @@ class Query:
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
     """
-    def select(self, key, column, query_columns):
-        return self.table.select(key, column, query_columns)
+    def select(self, *args):
+        #key, column, query_columns
+        if len(args) == 3:
+            return self.table.select(args[0], args[1], args[2])
+        #Just key
+        elif len(args) == 1:
+            return self.table.indexSelect(args[0])
 
     """
     # Update a record with specified key and columns
@@ -86,3 +93,5 @@ class Query:
             return u
         return False
 
+    def create_index(self, column_number):
+        self.table.create_index(column_number)

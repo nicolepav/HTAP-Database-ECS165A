@@ -44,6 +44,7 @@ deleted_keys = sample(keys, 100)
 for key in deleted_keys:
     query.delete(key)
     records.pop(key, None)
+print("Delete finished")
 
 for i in range(0, 100):
     r = sorted(sample(range(0, len(keys)), 2))
