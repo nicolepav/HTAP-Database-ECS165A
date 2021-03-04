@@ -21,6 +21,8 @@ class Record:
         self.key = key
         self.columns = columns
 
+# TODO find all instances where shared data structures are accessed/modified and put locks (critical sections)
+#   - example: anytime we directly change BP, lock then unlock
 class Table:
     """
     :param name: string         #Table name
@@ -50,7 +52,10 @@ class Table:
     # 2. Handle IsPageFull Logic: Check meta file or recreate base page and have it manually check to determine if full
     # 3. Then call recreatedPage.insert(RID, recordData)
     def insert(self, record):
+        # lock
         self.baseRID += 1
+        currentBaseRID = self.baseRID
+        # unlock
         key = record[0]
         self.keyToRID[key] = self.baseRID
         selectedPageRange = self.getPageRange(self.baseRID)
@@ -218,7 +223,6 @@ class Table:
         # Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
             self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID, selectedPageRange)
-
 
         if self.index:
             self.indexDelete(baseRID)

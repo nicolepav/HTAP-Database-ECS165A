@@ -24,6 +24,7 @@ BufferpoolSize = 16
 INVALID = 72057594037927935 #(max int for 7 byes, Hexadecimal: 0xFFFFFFFFFFFFFF)
 
 # global must be defined after class definition (its just under it)
+# TODO: to begin with, let's lock at start of every function then unlock at end
 class Bufferpool():
     def __init__(self):
         self.bufferpool = [None]*BufferpoolSize
@@ -86,3 +87,36 @@ class Bufferpool():
 
 global BP
 BP = Bufferpool()
+
+# lock then unlock all functions since they are critical sections in a shared data structure
+class LockManager():
+    def __init__(self):
+        # hash table mapping RIDs to list of S lock, X lock, bool isShrinkingPhase
+        # - if we see there's already an exclusive lock on that RID, we abort
+        # - otherwise, increment number of shared locks
+        # do we even have a lock or just using numbers to determine record's availability?
+        # - seems like just using numbers
+
+        # number of transactions holding a lock
+        pass
+
+    # return false if X lock already present or we're in shrinking phase
+    # - once one shared lock is given up, all of them have to be given up before more can be given out
+    #       i. This is so Xlocks can be given out at some point
+    def obtainSLock(self, RID):
+        pass
+
+    # return false if X or S lock already present
+    def obtainXLock(self, RID):
+        pass
+
+    # Initiate shrinking phase
+    # If num S locks == 0, set shrinkingPhase to false
+    def giveUpSLock(self, RID):
+        pass
+
+    def giveUpXLock(self, RID):
+        pass
+
+global LM
+LM = LockManager()
