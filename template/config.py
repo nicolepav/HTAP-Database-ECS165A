@@ -97,26 +97,50 @@ class LockManager():
         # do we even have a lock or just using numbers to determine record's availability?
         # - seems like just using numbers
 
+        self.sLocks = {}            # value is number of s locks
+        self.xLocks = {}            # 1 for has x lock, 0 for no x lock
+        self.isShrinking = {}       # 1 for is shrinking, 0 for not shrinking
+        
         # number of transactions holding a lock
-        pass
+        self.numActiveTransactions = 0
+
 
     # return false if X lock already present or we're in shrinking phase
     # - once one shared lock is given up, all of them have to be given up before more can be given out
     #       i. This is so Xlocks can be given out at some point
     def obtainSLock(self, RID):
-        pass
+        if(self.xLocks[RID] == 0 & self.isShrinking[RID] == 0): 
+            self.sLocks[RID] = self.sLocks[RID] + 1
+            return True
+
+        return False
 
     # return false if X or S lock already present
     def obtainXLock(self, RID):
-        pass
+        if(self.xLocks[RID] == 0):
+            xLocks[RID] = 1
+            return True
+
+        return False
 
     # Initiate shrinking phase
     # If num S locks == 0, set shrinkingPhase to false
     def giveUpSLock(self, RID):
-        pass
+        if(self.sLocks[RID] > 0):
+            self.isShrinking[RID] = 1
+            self.sLocks[RID] = self.sLocks[RID] - 1
+            return True
+        elif (self.sLocks == 0):
+            self.isShrinking[RID] = 0
+            return True
+
+        return False    # if return false, something went wrong
+
 
     def giveUpXLock(self, RID):
-        pass
+        self.isShrinking[RID] = 1 #not sure when to set this to 1 or 0. Dependent on shared locks? What gets released first?
+        self.xLocks = 0
+        return True
 
 global LM
 LM = LockManager()
