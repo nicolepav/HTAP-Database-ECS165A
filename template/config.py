@@ -97,6 +97,8 @@ class LockManager():
         # do we even have a lock or just using numbers to determine record's availability?
         # - seems like just using numbers
 
+        # would it be more or less convient to have these as one dictionary with an array of values?
+        # this is easy to read but might be a waste of space
         self.sLocks = {}            # value is number of s locks
         self.xLocks = {}            # 1 for has x lock, 0 for no x lock
         self.isShrinking = {}       # 1 for is shrinking, 0 for not shrinking
@@ -117,7 +119,7 @@ class LockManager():
 
     # return false if X or S lock already present
     def obtainXLock(self, RID):
-        if(self.xLocks[RID] == 0):
+        if(self.xLocks[RID] == 0 & self.sLocks[RID] == 0):
             xLocks[RID] = 1
             return True
 
