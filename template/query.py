@@ -31,6 +31,9 @@ class Query:
 
     """
     def delete(self, key):
+        # needs an X lock
+        # abort logic
+        # add internal logic for latching shared structures
         self.table.delete(key)
 
     """
@@ -39,6 +42,8 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+        # abort logic
+        # add internal logic for latching shared structures
         self.table.insert(columns)
 
     """
@@ -50,6 +55,9 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, key, column, query_columns):
+        # needs an S lock
+        # abort logic
+        # add internal logic for latching shared structures
         return self.table.select(key, column, query_columns)
 
     """
@@ -58,6 +66,9 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
+        # needs an X lock
+        # abort logic
+        # add internal logic for latching shared structures
         return self.table.update(key, columns)
 
     """
@@ -69,6 +80,9 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
+        # needs an S lock
+        # abort logic
+        # add internal logic for latching shared structures
         return self.table.sum(start_range, end_range, aggregate_column_index)
 
     """
@@ -80,6 +94,7 @@ class Query:
     # Returns False if no record matches key or if target record is locked by 2PL.
     """
     def increment(self, key, column):
+        # locking will be done in self.select and self.update
         r = self.select(key, self.table.key, [1] * self.table.num_columns)[0]
         if r is not False:
             updated_columns = [None] * self.table.num_columns

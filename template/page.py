@@ -9,6 +9,7 @@ TIMESTAMP_COLUMN = 2
 SCHEMA_ENCODING_COLUMN = 3
 BASE_RID = 4
 
+
 # aka base/tail pages
 class Page:
     def __init__(self, num_columns, PageRange, path):
@@ -110,6 +111,11 @@ class Page:
                 dataColumn=PhysicalPage()
                 dataColumn.readFromDisk(PhysicalPagePath)
                 self.insertData(dataColumn, PhysicalPagePath, numMetaElements)
+
+# End Page Class #
+
+
+
 
 class BasePage(Page):
     def __init__(self, num_columns, PageRange, path):

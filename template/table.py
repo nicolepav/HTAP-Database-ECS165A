@@ -21,6 +21,134 @@ class Record:
         self.key = key
         self.columns = columns
 
+
+# whole record locked from base record
+class Lock:
+    def __init__(self):
+        self.sLocks = 0
+        self.xLocks =  0
+        self.isShrinking = False
+        self.inUseBy = []
+
+    
+# lock then unlock all functions since they are critical sections in a shared data structure
+class LockManager():
+    def __init__(self):
+        # hash table mapping RIDs to list of S lock, X lock, bool isShrinkingPhase
+        # - if we see there's already an exclusive lock on that RID, we abort
+        # - otherwise, increment number of shared locks
+
+        self.KeytoLocks = {}
+        self.transactionID = -1  # number of transactions holding a lock
+
+    def getTransactionID(self):
+        self.transactionID += 1
+        return self.transactionID
+
+    # return false if X lock already present or we're in shrinking phase
+    # - once one shared lock is given up, all of them have to be given up before more can be given out
+    #       i. This is so Xlocks can be given out at some point
+    def obtainSLock(self, Key, transactionID):
+        giveLock = False
+
+        if self.KeytoLocks[Key].isShrinking:
+            # cannot give lock when lock is shrinking
+            return False
+
+        # check if we already have the lock
+        if Key not in self.KeytoLocks[Key]:
+            self.KeytoLocks[Key] = Lock()
+            self.KeytoLocks[Key].sLocks += 1
+            self.KeytoLocks[Key].inUseBy.append(transactionID)
+            # already has lock
+            return True
+        
+        # if there is not an xLock
+        if self.KeytoLocks[Key].xLocks == 0:
+            if transactionID not in KeyToLocks[Key].inUseBy:
+                self.KeytoLocks[Key].inUseBy.append(transactionID) 
+                self.KeytoLocks[Key].sLocks += 1
+            giveLock = True
+
+        # if there is an xLock
+        elif self.KeyToLocks[Key].xLocks == 1:
+            if transactionID in KeyToLocks[Key].inUseBy:
+                self.KeytoLocks[Key].sLocks += 1
+                giveLock = True
+
+        return giveLock
+
+    # return false if X or S lock already present
+    def obtainXLock(self, Key, transactionID):
+        giveLock = False
+
+        if self.KeytoLocks[Key].isShrinking:
+            # cannot give lock when lock is shrinking
+            return False
+
+        if (Key not in self.KeytoLocks[Key]):
+            self.KeytoLocks[Key] = Lock()
+            KeytoLocks[Key].xLocks = 1
+            self.KeytoLocks[Key].inUseBy.append(transactionID)
+            return True
+
+        #if there are no X locks
+        if self.KeytoLocks[Key].xLocks == 0:
+            # and no S locks, give out loc
+            if self.KeytoLocks[Key].sLocks == 0:
+                KeytoLocks[Key].xLocks = 1
+                self.KeytoLocks[Key].inUseBy.append(transactionID)
+                giveLock = True
+            # and there is an s Lock, then check what's using lock
+            elif self.KeyToLocks[Key].sLocks == 1:
+                if transactionID in KeyToLocks[Key].inUseBy:
+                    KeytoLocks[Key].xLocks = 1
+                    self.KeytoLocks[Key].inUseBy.append(transactionID)
+                    giveLock = True
+
+        # if there is an x lock already then any s locks are from the same transaction
+        elif self.KeyToLocks[Key].xLocks == 1:
+            if transactionID in KeyToLocks[Key].inUseBy:
+                giveLock = True
+
+        return giveLock
+
+    # Initiate shrinking phase
+    # If num S locks == 0, set shrinkingPhase to false
+    def giveUpSLock(self, Key, transactionID):
+        removeLock = False
+
+        if (self.KeytoLocks[Key].sLocks > 0):
+            self.KeytoLocks[Key].isShrinking = True
+            self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            self.KeytoLocks[Key].sLocks = self.KeytoLocks[Key].sLocks - 1
+            if (self.KeytoLocks[Key].sLocks == 0):
+                self.KeytoLocks[Key].isShrinking = False
+            
+            removeLock = True
+
+        if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
+            raise Exception("Lock Error: There were no S Locks to remove.")
+        
+        return removeLock
+
+
+    def giveUpXLock(self, Key, transactionID):
+        removeLock = False
+
+        if (self.KeytoLocks[Key].xLocks == 1):
+            self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            self.KeytoLocks[Key].xLocks = KeytoLocks[Key].xLocks - 1
+
+        
+        if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
+            raise Exception("Lock Error: There were no X Locks to remove.")
+        return removeLock
+
+
+# ------------------------------ End of Lock Class ------------------------------ #
+
+
 # TODO find all instances where shared data structures are accessed/modified and put locks (critical sections)
 #   - example: anytime we directly change BP, lock then unlock
 class Table:
@@ -40,7 +168,9 @@ class Table:
         self.path = path
         self.baseRID = baseRID
         self.keyToRID = keyToRID
-        self.index = None
+        self.index = Index(self)
+        #lock manager per table
+        self.lockManager = LockManager()
         self.numMerges = numMerges
         # new tailRID array, each element holds the tailRID of each Page Range.
         self.tailRIDs = tailRIDs

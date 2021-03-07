@@ -1,4 +1,4 @@
-from template.table import Table, Record
+from template.table import Table, Record, LockManager
 from template.index import Index
 
 class Transaction:
@@ -12,6 +12,7 @@ class Transaction:
         self.insertedTailRIDs = []
         # maps baseRID to previous indirection value
         self.updatedIndirectionColumns = {}
+        self.ID = -1
 
     """
     # Adds the given query to this transaction
@@ -31,21 +32,37 @@ class Transaction:
             # b. If update, then map baseRID to indirection and add tailRID to self.insertedTailRIDs
             pass
         for query, args in self.queries:
+            if self.ID != -1:
+                self.ID = query.table.lockManager.getTransactionID()
+            # TODO if Query.insert can't be used to check function type, refactor this into Query class
+            if query == Query.insert:
+                if not query.table.lockManger.obtainSLock(args[0], self.ID):
+                    self.abort()
+            elif query == Query.update:
+                if not query.table.lockManger.obtainXLock(args[0], self.ID):
+                    self.abort()
             result = query(*args)
             # If the query has failed the transaction should abort
             if result == False:
                 return self.abort()
         return self.commit()
 
-    # On abort, iterate through any insertedBase or tail RIDs and delete
-    # and then replace any base record's updatedIndirectionCOlumns with their previously mapped value
-    # Release locks
     def abort(self):
-        #TODO: do roll-back and any other necessary operations
+        self.rollbackChanges()
+        self.releaseLocks()
         return False
 
-    # Release locks, won't undo changes (don't think we write to disk)
     def commit(self):
-        # TODO: commit to database
+        self.releaseLocks()
         return True
 
+    #TODO: iterate through any insertedBase or tail RIDs and delete
+    # and then replace any base record's updatedIndirectionCOlumns with their previously mapped value
+    def rollbackChanges(self):
+
+    def releaseLocks(self):
+        for query, args in self.queries:
+            if query == Query.insert:
+                query.table.lockManger.giveUpSLock(args[0], self.ID)
+            elif query == Query.update:
+                query.table.lockManger.giveUpXLock(args[0], self.ID)
