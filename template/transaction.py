@@ -34,15 +34,32 @@ class Transaction:
         for query, args in self.queries:
             if self.ID != -1:
                 self.ID = query.table.lockManager.getTransactionID()
-            # TODO if Query.insert can't be used to check function type, refactor this into Query class
-            if query == Query.insert:
+            # TODO if Query.insert can't be used to check function type, refactor this into Query class (try to print the self.queries to see how stuff is stored, this way we can do a comparison)
+            if query.__name__ == "insert":
                 if not query.table.lockManger.obtainSLock(args[0], self.ID):
                     self.abort()
-            elif query == Query.update:
+                else:
+                    # get baseRID for inserted record (insert needs to happen atomically after this if we use this logic)
+                    #TODO query.table.latch.aquire()????
+                    self.insertedBaseRIDS.append(query.table.baseRID + 1)
+                    # call insert query
+            elif query.__name__ == "update":
                 if not query.table.lockManger.obtainXLock(args[0], self.ID):
                     self.abort()
+                else:
+                    queryColumns = []
+                    for i in query.table.num_columns:
+                        queryColumns.append(1)
+                    baseRecord = query.table.select(args[0], 1, queryColumns)[0]
+                    self.updatedIndirectionColumns[baseRecord[RID_COLUMN]] = baseRecord[INDIRECTION_COLUMN]
+                    self.insertedTailRIDS.append(query.table.tailRIDs + 1)
+            elif query.__name__ == "select":
+                if not query.table.lockManger.obtainSLock(args[0], self.ID):
+                    self.abort()
             result = query(*args)
-            # If the query has failed the transaction should abort
+
+            # Insert: need baseRID for inserted record
+            # Update: need previus base record indirection with indirection column (indirection column is tailRID) 
             if result == False:
                 return self.abort()
         return self.commit()
@@ -57,8 +74,16 @@ class Transaction:
         return True
 
     #TODO: iterate through any insertedBase or tail RIDs and delete
-    # and then replace any base record's updatedIndirectionCOlumns with their previously mapped value
+    # and then replace any base record's updatedIndirectionColumns with their previously mapped value
     def rollbackChanges(self):
+
+        # for thing in self.insertedBaseRIDS:
+        #     thing.rollbackChange()
+
+        # for thing in self.insertedTailRIDS:
+        #     thing.rollbackChange()
+
+        pass
 
     def releaseLocks(self):
         for query, args in self.queries:
@@ -66,3 +91,5 @@ class Transaction:
                 query.table.lockManger.giveUpSLock(args[0], self.ID)
             elif query == Query.update:
                 query.table.lockManger.giveUpXLock(args[0], self.ID)
+            elif query == Query.select:
+                query.table.lockManger.giveUpSLock(args[0], self.ID)

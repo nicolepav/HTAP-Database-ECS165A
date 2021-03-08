@@ -1,4 +1,5 @@
 import os
+from threading import Semaphore
 # Global Setting for the Database
 # PageSize, StartRID, etc..
 
@@ -28,6 +29,11 @@ INVALID = 72057594037927935 #(max int for 7 byes, Hexadecimal: 0xFFFFFFFFFFFFFF)
 class Bufferpool():
     def __init__(self):
         self.bufferpool = [None]*BufferpoolSize
+        self.latch = Semaphore()
+        # BP.latch.acquire()
+        # BP.latch.release()
+        # OR
+        # with BP.latch:
         pass
 
     def BufferpoolIsFull(self):

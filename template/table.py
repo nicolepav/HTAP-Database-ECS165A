@@ -65,14 +65,14 @@ class LockManager():
         
         # if there is not an xLock
         if self.KeytoLocks[Key].xLocks == 0:
-            if transactionID not in KeyToLocks[Key].inUseBy:
+            if transactionID not in self.KeyToLocks[Key].inUseBy:
                 self.KeytoLocks[Key].inUseBy.append(transactionID) 
                 self.KeytoLocks[Key].sLocks += 1
             giveLock = True
 
         # if there is an xLock
         elif self.KeyToLocks[Key].xLocks == 1:
-            if transactionID in KeyToLocks[Key].inUseBy:
+            if transactionID in self.KeyToLocks[Key].inUseBy:
                 self.KeytoLocks[Key].sLocks += 1
                 giveLock = True
 
@@ -101,14 +101,14 @@ class LockManager():
                 giveLock = True
             # and there is an s Lock, then check what's using lock
             elif self.KeyToLocks[Key].sLocks == 1:
-                if transactionID in KeyToLocks[Key].inUseBy:
+                if transactionID in self.KeyToLocks[Key].inUseBy:
                     KeytoLocks[Key].xLocks = 1
                     self.KeytoLocks[Key].inUseBy.append(transactionID)
                     giveLock = True
 
         # if there is an x lock already then any s locks are from the same transaction
         elif self.KeyToLocks[Key].xLocks == 1:
-            if transactionID in KeyToLocks[Key].inUseBy:
+            if transactionID in self.KeyToLocks[Key].inUseBy:
                 giveLock = True
 
         return giveLock
@@ -160,6 +160,18 @@ class Table:
     :variable baseRID           #The current RID used to store a new base record
     :variable tailRIDs          #The current RID used for updating a base record, used for tail record
     """
+    # Latching Cases
+    # 1. Shared data structure is being accessed in some way
+    #   a. Update to data structure: latch
+    #   b. Reading from shared data structure: latch
+    #   c. Looping through values
+    # Don't need latches
+    # 1. Straight calculations that can be done at any time
+    #   a. most of our calculation functions
+    # 
+
+    # index, (keyToRID, baseRID, tailRIDs), bufferpool, numMerges???
+
     def __init__(self, name, num_columns, key, path = "./", baseRID = -1, tailRIDs = [], keyToRID = {}, numMerges = 0):
         self.name = name
         self.key = key
@@ -174,6 +186,8 @@ class Table:
         self.numMerges = numMerges
         # new tailRID array, each element holds the tailRID of each Page Range.
         self.tailRIDs = tailRIDs
+        # used for latching Page Dir
+        self.latch = Semaphore()
 
     # Calls insert on the correct page range
     # 1. Check if page is already in bufferpool (getBasePagePath(self, baseRID) compared to BP.pages dictionary {page_path: page_object})
@@ -182,10 +196,13 @@ class Table:
     # 2. Handle IsPageFull Logic: Check meta file or recreate base page and have it manually check to determine if full
     # 3. Then call recreatedPage.insert(RID, recordData)
     def insert(self, record):
-        # lock
+        # PROBLEM: if insert is called by two different threads, and the later thread inserts first, 
+        # then it will append the data in the wrong location unless we latch the entire function
+        # So for now, we'll just latch the whole insert
+        # PD latch (will use this instead of BP latching because it will latch more)
+        self.latch.acquire()
         self.baseRID += 1
         currentBaseRID = self.baseRID
-        # unlock
         key = record[0]
         self.keyToRID[key] = self.baseRID
         selectedPageRange = self.getPageRange(self.baseRID)
@@ -207,8 +224,12 @@ class Table:
             BPindex = BP.refresh(BPindex)
         BP.bufferpool[BPindex].insert(self.baseRID, record)
         self.finishedModifyingRecord(BPindex)
+        # PD unlatch
+        self.latch.release()
         if self.index:
+            self.index.latch.acquire()
             self.indexInsert(record)
+            self.index.latch.release()
 
     # m1_tester expects a list of record objects, but we should only be passing back certain columns
     def select(self, key, column, query_columns):
@@ -220,19 +241,24 @@ class Table:
         selectedPageRange = self.getPageRange(baseRID)
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         BasePagePath = self.getBasePagePath(baseRID)
-
-        BPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         basePageOffset = self.calculatePageOffset(baseRID)
+
+        # BP latch
+        BP.latch.acquire()
+        BPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
 
         if baseRecord[RID_COLUMN] == INVALID:
             BP.bufferpool[BPindex].pinned -=1
+            # BP unlatch
+            BP.latch.release()
             return False
 
         mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
-        returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
-
         BP.bufferpool[BPindex].pinned -=1
+        # BP unlatch
+        BP.latch.release()
+        returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
         return [Record(mostUpdatedRecord.rid, mostUpdatedRecord.key, returned_record_columns)]
 
     # 1. Pull base record into BP if needed so we can get the record and update base record data/bp status
@@ -248,6 +274,8 @@ class Table:
         selectedPageRange = self.getPageRange(baseRID)
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         BasePagePath = self.getBasePagePath(baseRID)
+        # BP latch
+        BP.latch.acquire()
         baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
@@ -270,15 +298,19 @@ class Table:
         tailBPindex = self.getTailPageBufferIndex(selectedPageRange, TailPagePath)
         BP.bufferpool[tailBPindex].insert(cumulativeRecord)
         self.finishedModifyingRecord(tailBPindex)
+        # TODO should do BP unlatch here but need to think through merging more
         # 4.
         if self.numMerges == 0 and self.calculateTailPageIndex(self.tailRIDs[selectedPageRange]) >= MergePolicy:
             self.initiateMerge(selectedPageRange)
         elif self.numMerges > 0 and self.calculateTailPageIndex(self.tailRIDs[selectedPageRange]) >= self.numMerges * MergePolicy + MergePolicy:
             self.initiateMerge(selectedPageRange)
+        # TODO will put BP unlatch here temporarily but need to think through merging more
+        BP.latch.release()
         # 5.
         if self.index:
+            self.index.latch.acquire()
             self.indexUpdate(cumulativeRecord)
-        return True
+            self.index.latch.release()
 
     def finishedModifyingRecord(self, BPindex):
         BP.bufferpool[BPindex].dirty = True
@@ -294,21 +326,24 @@ class Table:
             selectedPageRange = self.getPageRange(baseRID)
             PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
             BasePagePath = self.getBasePagePath(baseRID)
-
-            BPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
-
             basePageOffset = self.calculatePageOffset(baseRID)
+            # BP latch
+            BP.latch.acquire()
+            BPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
             baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
 
             if baseRecord[RID_COLUMN] == INVALID:
                 BP.bufferpool[BPindex].pinned -=1
+                # BP unlatch
+                BP.latch.release()
                 continue
 
             mostUpdatedRecord = self.getMostUpdatedRecord(baseRecord, BPindex, selectedPageRange, key)
+            BP.bufferpool[BPindex].pinned -=1
+            # BP unlatch
+            BP.latch.release()
             query_columns = [1, 1, 1, 1, 1]
             returned_record_columns = self.setupReturnedRecord(mostUpdatedRecord, query_columns)
-
-            BP.bufferpool[BPindex].pinned -=1
 
             none_in_range = False
             summation += mostUpdatedRecord.columns[aggregate_column_index]
@@ -342,8 +377,10 @@ class Table:
         selectedPageRange = self.getPageRange(baseRID)
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         BasePagePath = self.getBasePagePath(baseRID)
-        baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         basePageOffset = self.calculatePageOffset(baseRID)
+        # BP latch
+        BP.latch.acquire()
+        baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
 
         # Invalidate base record
@@ -353,9 +390,14 @@ class Table:
         # Recurse through tail record indirections, invalidating each tail record until invalidated base record reached
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1:
             self.invalidateTailRecords(baseRecord[INDIRECTION_COLUMN], baseRID, selectedPageRange)
-
+        # BP unlatch
+        BP.latch.release()
         if self.index:
+            # Index latch
+            self.index.latch.acquire()
             self.indexDelete(baseRID)
+            # Index unlatch
+            self.index.latch.release()
 
     def invalidateTailRecords(self, indirectionRID, baseRID, selectedPageRange):
         if indirectionRID == baseRID:

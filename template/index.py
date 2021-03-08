@@ -17,6 +17,7 @@ class Index:
         self.indices = [None] *  table.num_columns
         self.indices[0] = BTree()
         self.table = table
+        self.latch = threading.Semaphore()
 
     """
     # returns the location of all records with the given value on column "column"
