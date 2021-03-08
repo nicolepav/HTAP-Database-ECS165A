@@ -4,7 +4,7 @@ from template.config import *
 import os
 import json
 import shutil
-
+import threading
 
 class Database():
 
@@ -27,6 +27,8 @@ class Database():
             if not os.path.exists(tableDirPath):
                 os.mkdir(tableDirPath)
             table.close(tableDirPath)
+        for thread in threads:
+            thread.join()
 
     """
     # Creates a new table
@@ -37,7 +39,8 @@ class Database():
     def create_table(self, name, num_columns, key):
         Tablepath = self.path + "/table_" + name
         if os.path.exists(Tablepath):
-            raise Exception("Table already exists!")
+            shutil.rmtree(Tablepath)
+            # raise Exception("Table already exists!")
         os.mkdir(Tablepath)
         table = Table(name, num_columns, key, Tablepath)
         self.tables.append(table)

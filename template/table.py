@@ -21,136 +21,6 @@ class Record:
         self.key = key
         self.columns = columns
 
-
-# whole record locked from base record
-class Lock:
-    def __init__(self):
-        self.sLocks = 0
-        self.xLocks =  0
-        self.isShrinking = False
-        self.inUseBy = []
-
-    
-# lock then unlock all functions since they are critical sections in a shared data structure
-class LockManager():
-    def __init__(self):
-        # hash table mapping RIDs to list of S lock, X lock, bool isShrinkingPhase
-        # - if we see there's already an exclusive lock on that RID, we abort
-        # - otherwise, increment number of shared locks
-
-        self.KeytoLocks = {}
-        self.transactionID = -1  # number of transactions holding a lock
-
-    def getTransactionID(self):
-        self.transactionID += 1
-        return self.transactionID
-
-    # return false if X lock already present or we're in shrinking phase
-    # - once one shared lock is given up, all of them have to be given up before more can be given out
-    #       i. This is so Xlocks can be given out at some point
-    def obtainSLock(self, Key, transactionID):
-        giveLock = False
-
-        if self.KeytoLocks[Key].isShrinking:
-            # cannot give lock when lock is shrinking
-            return False
-
-        # check if we already have the lock
-        if Key not in self.KeytoLocks[Key]:
-            self.KeytoLocks[Key] = Lock()
-            self.KeytoLocks[Key].sLocks += 1
-            self.KeytoLocks[Key].inUseBy.append(transactionID)
-            # already has lock
-            return True
-        
-        # if there is not an xLock
-        if self.KeytoLocks[Key].xLocks == 0:
-            if transactionID not in self.KeyToLocks[Key].inUseBy:
-                self.KeytoLocks[Key].inUseBy.append(transactionID) 
-                self.KeytoLocks[Key].sLocks += 1
-            giveLock = True
-
-        # if there is an xLock
-        elif self.KeyToLocks[Key].xLocks == 1:
-            if transactionID in self.KeyToLocks[Key].inUseBy:
-                self.KeytoLocks[Key].sLocks += 1
-                giveLock = True
-
-        return giveLock
-
-    # return false if X or S lock already present
-    def obtainXLock(self, Key, transactionID):
-        giveLock = False
-
-        if self.KeytoLocks[Key].isShrinking:
-            # cannot give lock when lock is shrinking
-            return False
-
-        if (Key not in self.KeytoLocks[Key]):
-            self.KeytoLocks[Key] = Lock()
-            KeytoLocks[Key].xLocks = 1
-            self.KeytoLocks[Key].inUseBy.append(transactionID)
-            return True
-
-        #if there are no X locks
-        if self.KeytoLocks[Key].xLocks == 0:
-            # and no S locks, give out loc
-            if self.KeytoLocks[Key].sLocks == 0:
-                KeytoLocks[Key].xLocks = 1
-                self.KeytoLocks[Key].inUseBy.append(transactionID)
-                giveLock = True
-            # and there is an s Lock, then check what's using lock
-            elif self.KeyToLocks[Key].sLocks == 1:
-                if transactionID in self.KeyToLocks[Key].inUseBy:
-                    KeytoLocks[Key].xLocks = 1
-                    self.KeytoLocks[Key].inUseBy.append(transactionID)
-                    giveLock = True
-
-        # if there is an x lock already then any s locks are from the same transaction
-        elif self.KeyToLocks[Key].xLocks == 1:
-            if transactionID in self.KeyToLocks[Key].inUseBy:
-                giveLock = True
-
-        return giveLock
-
-    # Initiate shrinking phase
-    # If num S locks == 0, set shrinkingPhase to false
-    def giveUpSLock(self, Key, transactionID):
-        removeLock = False
-
-        if (self.KeytoLocks[Key].sLocks > 0):
-            self.KeytoLocks[Key].isShrinking = True
-            self.KeytoLocks[Key].inUseBy.remove(transactionID)
-            self.KeytoLocks[Key].sLocks = self.KeytoLocks[Key].sLocks - 1
-            if (self.KeytoLocks[Key].sLocks == 0):
-                self.KeytoLocks[Key].isShrinking = False
-            
-            removeLock = True
-
-        if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
-            raise Exception("Lock Error: There were no S Locks to remove.")
-        
-        return removeLock
-
-
-    def giveUpXLock(self, Key, transactionID):
-        removeLock = False
-
-        if (self.KeytoLocks[Key].xLocks == 1):
-            self.KeytoLocks[Key].inUseBy.remove(transactionID)
-            self.KeytoLocks[Key].xLocks = KeytoLocks[Key].xLocks - 1
-
-        
-        if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
-            raise Exception("Lock Error: There were no X Locks to remove.")
-        return removeLock
-
-
-# ------------------------------ End of Lock Class ------------------------------ #
-
-
-# TODO find all instances where shared data structures are accessed/modified and put locks (critical sections)
-#   - example: anytime we directly change BP, lock then unlock
 class Table:
     """
     :param name: string         #Table name
@@ -165,10 +35,6 @@ class Table:
     #   a. Update to data structure: latch
     #   b. Reading from shared data structure: latch
     #   c. Looping through values
-    # Don't need latches
-    # 1. Straight calculations that can be done at any time
-    #   a. most of our calculation functions
-    # 
 
     # index, (keyToRID, baseRID, tailRIDs), bufferpool, numMerges???
 
@@ -199,6 +65,7 @@ class Table:
         # PROBLEM: if insert is called by two different threads, and the later thread inserts first, 
         # then it will append the data in the wrong location unless we latch the entire function
         # So for now, we'll just latch the whole insert
+
         # PD latch (will use this instead of BP latching because it will latch more)
         self.latch.acquire()
         self.baseRID += 1
@@ -230,6 +97,7 @@ class Table:
             self.index.latch.acquire()
             self.indexInsert(record)
             self.index.latch.release()
+        return [self, key]
 
     # m1_tester expects a list of record objects, but we should only be passing back certain columns
     def select(self, key, column, query_columns):
@@ -265,7 +133,7 @@ class Table:
     # 2. Get the most updated tail record into BP so that we can create cumulative record
     # 3. Add tail page to BP if needed and insert the cumulative tail record into latest tail page
     # 4/5. Check if a merge should occur and udpate index
-    def update(self, key, record):
+    def update(self, key, record, isTransaction = False):
         if key not in self.keyToRID:
             print("No RID found for this key")
             return False
@@ -282,10 +150,16 @@ class Table:
 
         if baseRecord[RID_COLUMN] == INVALID:
             BP.bufferpool[baseBPindex].pinned -=1
+            BP.latch.release()
             return False
 
         self.tailRIDs[selectedPageRange] += 1
-        BP.bufferpool[baseBPindex].newRecordAppended(self.tailRIDs[selectedPageRange], basePageOffset)
+        tailRID = self.tailRIDs[selectedPageRange]
+        # if transaction, don't update indirection column yet
+        if isTransaction:
+            BP.bufferpool[baseBPindex].newRecordAppended(baseRecord[INDIRECTION_COLUMN], basePageOffset)
+        else:
+            BP.bufferpool[baseBPindex].newRecordAppended(tailRID, basePageOffset)
         self.finishedModifyingRecord(baseBPindex)
         # 2.
         if baseRecord[SCHEMA_ENCODING_COLUMN] == 1 and not self.recordHasBeenMerged(baseRecord, BP.bufferpool[baseBPindex].TPS):
@@ -294,15 +168,15 @@ class Table:
         else:
             cumulativeRecord = self.createCumulativeRecord(baseRecord, record, baseRecord[RID_COLUMN], baseRecord[RID_COLUMN], selectedPageRange, MetaElements)
         # 3.
-        TailPagePath = self.getTailPagePath(self.tailRIDs[selectedPageRange], selectedPageRange)
+        TailPagePath = self.getTailPagePath(tailRID, selectedPageRange)
         tailBPindex = self.getTailPageBufferIndex(selectedPageRange, TailPagePath)
         BP.bufferpool[tailBPindex].insert(cumulativeRecord)
         self.finishedModifyingRecord(tailBPindex)
         # TODO should do BP unlatch here but need to think through merging more
         # 4.
-        if self.numMerges == 0 and self.calculateTailPageIndex(self.tailRIDs[selectedPageRange]) >= MergePolicy:
+        if self.numMerges == 0 and self.calculateTailPageIndex(tailRID) >= MergePolicy:
             self.initiateMerge(selectedPageRange)
-        elif self.numMerges > 0 and self.calculateTailPageIndex(self.tailRIDs[selectedPageRange]) >= self.numMerges * MergePolicy + MergePolicy:
+        elif self.numMerges > 0 and self.calculateTailPageIndex(tailRID) >= self.numMerges * MergePolicy + MergePolicy:
             self.initiateMerge(selectedPageRange)
         # TODO will put BP unlatch here temporarily but need to think through merging more
         BP.latch.release()
@@ -311,6 +185,39 @@ class Table:
             self.index.latch.acquire()
             self.indexUpdate(cumulativeRecord)
             self.index.latch.release()
+        return [self, tailRID, selectedPageRange, baseRID]
+
+    def deleteTailRecord(self, tailRID, selectedPageRange):
+        pageOffset = self.calculatePageOffset(tailRID)
+        TailPagePath = self.getTailPagePath(tailRID, selectedPageRange)
+        tailBPindex = BP.pathInBP(TailPagePath)
+        if tailBPindex is None:
+            # here we know that the page is not in the bufferpool (So the page exists only on disk)
+            page = TailPage(self.num_columns, selectedPageRange, TailPagePath)
+            page.readPageFromDisk(TailPagePath)
+            tailBPindex = BP.add(page)
+        else:
+            # here the page is in the bufferpool, so we will refresh it.
+            tailBPindex = BP.refresh(tailBPindex)
+
+        nextRID = BP.bufferpool[tailBPindex].invalidateRecord(pageOffset)
+        self.finishedModifyingRecord(tailBPindex)
+
+
+    def updateBaseIndirection(self, baseRID, tailRID):
+        selectedPageRange = self.getPageRange(baseRID)
+        PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
+        BasePagePath = self.getBasePagePath(baseRID)
+        # BP latch
+        BP.latch.acquire()
+        baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
+        basePageOffset = self.calculatePageOffset(baseRID)
+        baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
+
+        if baseRecord[INDIRECTION_COLUMN] < tailRID:
+            BP.bufferpool[baseBPindex].newRecordAppended(tailRID, basePageOffset)
+        self.finishedModifyingRecord(baseBPindex)
+        BP.latch.release()
 
     def finishedModifyingRecord(self, BPindex):
         BP.bufferpool[BPindex].dirty = True

@@ -74,6 +74,7 @@ for j in range(0, num_threads):
             updated_columns = [None, None, None, None, None]
 
 for transaction_worker in transaction_workers:
+    print("running")
     transaction_worker.run()
 
 score = len(keys)

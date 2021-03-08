@@ -1,6 +1,7 @@
 from template.table import Table, Record
 from template.index import Index
-
+from template.config import *
+import threading
 class TransactionWorker:
 
     """
@@ -22,9 +23,15 @@ class TransactionWorker:
     Runs a transaction
     """
     def run(self):
+        # x = threading.Thread(target=self.run_thread, args=())
+        # threads.append(x)
+        # x.start()
+        self.run_thread()
+
+
+    def run_thread(self):
         for transaction in self.transactions:
             # each transaction returns True if committed or False if aborted
             self.stats.append(transaction.run())
         # stores the number of transactions that committed
         self.result = len(list(filter(lambda x: x, self.stats)))
-

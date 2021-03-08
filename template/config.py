@@ -24,6 +24,8 @@ BufferpoolSize = 16
 
 INVALID = 72057594037927935 #(max int for 7 byes, Hexadecimal: 0xFFFFFFFFFFFFFF)
 
+threads = []
+
 # global must be defined after class definition (its just under it)
 # TODO: to begin with, let's lock at start of every function then unlock at end
 class Bufferpool():
@@ -93,3 +95,129 @@ class Bufferpool():
 
 global BP
 BP = Bufferpool()
+
+# whole record locked from base record
+class Lock:
+    def __init__(self):
+        self.sLocks = 0
+        self.xLocks =  0
+        self.isShrinking = False
+        self.inUseBy = []
+
+# lock then unlock all functions since they are critical sections in a shared data structure
+class LockManager():
+    def __init__(self):
+        # hash table mapping RIDs to list of S lock, X lock, bool isShrinkingPhase
+        # - if we see there's already an exclusive lock on that RID, we abort
+        # - otherwise, increment number of shared locks
+        self.latch = Semaphore()
+        self.KeytoLocks = {}
+        self.transactionID = -1  # number of transactions holding a lock
+
+    def getTransactionID(self):
+        self.transactionID += 1
+        return self.transactionID
+
+    # return false if X lock already present or we're in shrinking phase
+    # - once one shared lock is given up, all of them have to be given up before more can be given out
+    #       i. This is so Xlocks can be given out at some point
+    def obtainSLock(self, Key, transactionID):
+        giveLock = False
+        if Key not in self.KeytoLocks:
+            self.KeytoLocks[Key] = Lock()
+            self.KeytoLocks[Key].sLocks += 1
+            self.KeytoLocks[Key].inUseBy.append(transactionID)
+            # already has lock
+            return True
+
+        if self.KeytoLocks[Key].isShrinking:
+            # cannot give lock when lock is shrinking
+            return False
+
+        # if there is not an xLock
+        if self.KeytoLocks[Key].xLocks == 0:
+            if transactionID not in self.KeytoLocks[Key].inUseBy:
+                self.KeytoLocks[Key].inUseBy.append(transactionID)
+                self.KeytoLocks[Key].sLocks += 1
+            giveLock = True
+
+        # if there is an xLock
+        elif self.KeytoLocks[Key].xLocks == 1:
+            if transactionID in self.KeytoLocks[Key].inUseBy:
+                self.KeytoLocks[Key].sLocks += 1
+                giveLock = True
+
+        return giveLock
+
+    # return false if X or S lock already present
+    def obtainXLock(self, Key, transactionID):
+        giveLock = False
+
+        if Key not in self.KeytoLocks:
+            self.KeytoLocks[Key] = Lock()
+            self.KeytoLocks[Key].xLocks = 1
+            self.KeytoLocks[Key].inUseBy.append(transactionID)
+            return True
+
+        if self.KeytoLocks[Key].isShrinking:
+            # cannot give lock when lock is shrinking
+            return False
+
+        #if there are no X locks
+        if self.KeytoLocks[Key].xLocks == 0:
+            # and no S locks, give out loc
+            if self.KeytoLocks[Key].sLocks == 0:
+                self.KeytoLocks[Key].xLocks = 1
+                self.KeytoLocks[Key].inUseBy.append(transactionID)
+                giveLock = True
+            # and there is an s Lock, then check what's using lock
+            elif self.KeyToLocks[Key].sLocks == 1:
+                if transactionID in self.KeyToLocks[Key].inUseBy:
+                    self.KeytoLocks[Key].xLocks = 1
+                    self.KeytoLocks[Key].inUseBy.append(transactionID)
+                    giveLock = True
+
+        # if there is an x lock already then any s locks are from the same transaction
+        elif self.KeytoLocks[Key].xLocks == 1:
+            if transactionID in self.KeytoLocks[Key].inUseBy:
+                giveLock = True
+
+        return giveLock
+
+    # Initiate shrinking phase
+    # If num S locks == 0, set shrinkingPhase to false
+    def giveUpSLock(self, Key, transactionID):
+        removeLock = False
+
+        if Key not in self.KeytoLocks:
+            print("Key ", Key, " doesn't have S Lock")
+            return True
+        if (self.KeytoLocks[Key].sLocks > 0):
+            self.KeytoLocks[Key].isShrinking = True
+            self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            self.KeytoLocks[Key].sLocks = self.KeytoLocks[Key].sLocks - 1
+            if (self.KeytoLocks[Key].sLocks == 0):
+                self.KeytoLocks[Key].isShrinking = False
+            removeLock = True
+            # del self.KeytoLocks[Key]
+        # if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
+        #     raise Exception("Lock Error: There were no S Locks to remove.")
+        return removeLock
+
+
+    def giveUpXLock(self, Key, transactionID):
+        removeLock = False
+
+        if (self.KeytoLocks[Key].xLocks == 1):
+            self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            # print("removed ", transactionID)
+            self.KeytoLocks[Key].xLocks = 0
+            removeLock = True
+
+        # if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
+        #     raise Exception("Lock Error: There were no X Locks to remove.")
+        return removeLock
+
+
+global LM
+LM = LockManager()
