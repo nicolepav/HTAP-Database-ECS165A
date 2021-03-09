@@ -144,8 +144,9 @@ class BasePage(Page):
         self.dirty = True
         self.num_records += 1
         for index, dataColumn in enumerate(self.dataColumns):
-            dataColumn.appendData(record[index])
-        self.initializeRecordMetaData(RID)
+            if dataColumn != 0:
+                dataColumn.appendData(record[index])
+                self.initializeRecordMetaData(RID)
 
     def newRecordAppended(self, RID, pageOffset):
         self.metaColumns[INDIRECTION_COLUMN].update(RID, pageOffset)
