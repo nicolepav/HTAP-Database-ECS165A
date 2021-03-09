@@ -28,7 +28,7 @@ class TransactionWorker:
             x = threading.Thread(target=self.run_thread, args=())
             threads.append(x)
             x.start()
-            x.join()
+            # join when db.close() is called
         else:
             self.run_thread()
 
