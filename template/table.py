@@ -68,6 +68,7 @@ class Table:
 
         # PD latch (will use this instead of BP latching because it will latch more)
         self.latch.acquire()
+        print("inserting: ", record)
         self.baseRID += 1
         currentBaseRID = self.baseRID
         key = record[0]

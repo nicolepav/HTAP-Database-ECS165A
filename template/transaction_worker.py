@@ -23,10 +23,13 @@ class TransactionWorker:
     Runs a transaction
     """
     def run(self):
-        # x = threading.Thread(target=self.run_thread, args=())
-        # threads.append(x)
-        # x.start()
-        self.run_thread()
+        shouldThread = True
+        if shouldThread:
+            x = threading.Thread(target=self.run_thread, args=())
+            threads.append(x)
+            x.start()
+        else:
+            self.run_thread()
 
 
     def run_thread(self):

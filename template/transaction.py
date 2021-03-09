@@ -92,6 +92,7 @@ class Transaction:
 
     def releaseLocks(self):
         for query, args in self.queries:
+            # print("args: ", args, "args 0: ", args[0])
             if query.__name__ == "insert":
                 LM.giveUpXLock(args[0], self.ID)
             elif query.__name__ == "update":

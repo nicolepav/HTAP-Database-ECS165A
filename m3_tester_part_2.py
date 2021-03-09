@@ -44,6 +44,7 @@ for i in range(0, 1000):
     i = i % num_threads
     records[key] = [key, randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20)]
     q = Query(grades_table)
+    print("insert keys: ", key)
     insert_transactions[i].add_query(q.insert, *records[key])
     worker_keys[i][key] = True
 
@@ -59,6 +60,7 @@ for c in range(grades_table.num_columns):
                 found = False
         if found:
             query = Query(grades_table)
+            print("select keys: ", key)
             select_transactions[t % num_threads].add_query(query.select, key, c, [1, 1, 1, 1, 1])
         t += 1
 
@@ -70,6 +72,7 @@ for j in range(0, num_threads):
             updated_columns[i] = value
             records[key][i] = value
             query = Query(grades_table)
+            print("update keys: ", key)
             update_transactions[j].add_query(query.update, key, *updated_columns)
             updated_columns = [None, None, None, None, None]
 
