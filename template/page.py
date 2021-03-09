@@ -181,13 +181,11 @@ class BasePage(Page):
         MetaJsonPath = path + "/Page_Meta.json"
         fullPath = os.path.join(MetaJsonPath)
         with open(MetaJsonPath, "r") as content:
-            print(json.loads(content.read()))
             metaDictionary = json.load(content)
         # print("printing file")
         # for line in f:
         #     print("line: ", line)
-        # metaDictionary = json.load(f)
-        # f.close()
+        content.close()
         self.num_records = metaDictionary["num_records"]
         self.TPS = metaDictionary["TPS"]
         numColumns = metaDictionary["num_columns"]
@@ -252,9 +250,13 @@ class TailPage(Page):
     def readPageMeta(self, path):
         #tail page, so get page meta (numrecords)
         MetaJsonPath = path + "/Page_Meta.json"
-        f = open(MetaJsonPath, "r")
-        metaDictionary = json.load(f)
-        f.close()
+        fullPath = os.path.join(MetaJsonPath)
+        with open(MetaJsonPath, "r") as content:
+            metaDictionary = json.load(content)
+        # print("printing file")
+        # for line in f:
+        #     print("line: ", line)
+        content.close()
         self.num_records = metaDictionary["num_records"]
         numColumns = metaDictionary["num_columns"]
         return numColumns
