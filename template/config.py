@@ -171,8 +171,8 @@ class LockManager():
                 self.KeytoLocks[Key].inUseBy.append(transactionID)
                 giveLock = True
             # and there is an s Lock, then check what's using lock
-            elif self.KeyToLocks[Key].sLocks == 1:
-                if transactionID in self.KeyToLocks[Key].inUseBy:
+            elif self.KeytoLocks[Key].sLocks == 1:
+                if transactionID in self.KeytoLocks[Key].inUseBy:
                     self.KeytoLocks[Key].xLocks = 1
                     self.KeytoLocks[Key].inUseBy.append(transactionID)
                     giveLock = True
