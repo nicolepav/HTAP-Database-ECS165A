@@ -209,7 +209,8 @@ class LockManager():
         removeLock = False
 
         if (self.KeytoLocks[Key].xLocks == 1):
-            self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            if type(self.KeytoLocks[Key].inUseBy) == list:
+                self.KeytoLocks[Key].inUseBy.remove(transactionID)
             # print("removed ", transactionID)
             self.KeytoLocks[Key].xLocks = 0
             removeLock = True

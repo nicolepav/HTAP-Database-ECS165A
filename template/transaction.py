@@ -80,15 +80,17 @@ class Transaction:
     #TODO: iterate through any insertedBase or tail RIDs and delete
     def rollbackChanges(self):
         for data in self.insertedTailData:
-            table = data[0]
-            tailRID = data[1]
-            selectedPageRange = data[2]
-            baseRID = data[3]
-            table.deleteTailRecord(tailRID, selectedPageRange)
+            if data != None:
+                table = data[0]
+                tailRID = data[1]
+                selectedPageRange = data[2]
+                baseRID = data[3]
+                table.deleteTailRecord(tailRID, selectedPageRange)
         for data in self.insertedBaseData:
-            table = data[0]
-            key = data[1]
-            table.delete(key)
+            if data != None:
+                table = data[0]
+                key = data[1]
+                table.delete(key)
 
     def releaseLocks(self):
         for query, args in self.queries:
