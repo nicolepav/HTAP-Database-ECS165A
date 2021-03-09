@@ -185,7 +185,6 @@ class BasePage(Page):
         # print("printing file")
         # for line in f:
         #     print("line: ", line)
-        content.close()
         self.num_records = metaDictionary["num_records"]
         self.TPS = metaDictionary["TPS"]
         numColumns = metaDictionary["num_columns"]
@@ -256,7 +255,6 @@ class TailPage(Page):
         # print("printing file")
         # for line in f:
         #     print("line: ", line)
-        content.close()
         self.num_records = metaDictionary["num_records"]
         numColumns = metaDictionary["num_columns"]
         return numColumns
