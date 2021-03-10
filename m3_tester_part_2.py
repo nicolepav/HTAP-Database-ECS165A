@@ -80,6 +80,10 @@ for transaction_worker in transaction_workers:
     print("running")
     transaction_worker.run()
 
+for transaction_worker in transaction_workers:
+    print("joining")
+    transaction_worker.join()
+
 score = len(keys)
 for key in keys:
     correct = records[key]

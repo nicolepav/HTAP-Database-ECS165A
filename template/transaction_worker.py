@@ -11,6 +11,7 @@ class TransactionWorker:
         self.stats = []
         self.transactions = transactions
         self.result = 0
+        self.thread = 0
         pass
 
     """
@@ -26,6 +27,7 @@ class TransactionWorker:
         shouldThread = True
         if shouldThread:
             x = threading.Thread(target=self.run_thread, args=())
+            self.thread = x
             threads.append(x)
             x.start()
         else:
@@ -38,3 +40,6 @@ class TransactionWorker:
             self.stats.append(transaction.run())
         # stores the number of transactions that committed
         self.result = len(list(filter(lambda x: x, self.stats)))
+
+    def join(self):
+        self.thread.join()

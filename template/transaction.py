@@ -36,7 +36,9 @@ class Transaction:
                     result = False
                 else:
                     result = query(*args)
+                    LM.latch.acquire()
                     self.insertedBaseData.append(result)
+                    LM.latch.release()
             elif query.__name__ == "update":
                 LM.latch.acquire()
                 hasLock = LM.obtainXLock(args[0], self.ID)
@@ -45,7 +47,9 @@ class Transaction:
                     result = False
                 else:
                     result = query(*args)
+                    LM.latch.acquire()
                     self.insertedTailData.append(result)
+                    LM.latch.release()
             elif query.__name__ == "select":
                 LM.latch.acquire()
                 hasLock = LM.obtainSLock(args[0], self.ID)
