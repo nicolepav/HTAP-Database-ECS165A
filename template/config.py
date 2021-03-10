@@ -1,5 +1,5 @@
 import os
-from threading import Semaphore
+import threading
 # Global Setting for the Database
 # PageSize, StartRID, etc..
 
@@ -31,7 +31,7 @@ threads = []
 class Bufferpool():
     def __init__(self):
         self.bufferpool = [None]*BufferpoolSize
-        self.latch = Semaphore()
+        self.latch = threading.Lock()
         # BP.latch.acquire()
         # BP.latch.release()
         # OR
@@ -97,7 +97,7 @@ global BP
 BP = Bufferpool()
 
 # whole record locked from base record
-class Lock:
+class RecordLock():
     def __init__(self):
         self.sLocks = 0
         self.xLocks =  0
@@ -110,7 +110,7 @@ class LockManager():
         # hash table mapping RIDs to list of S lock, X lock, bool isShrinkingPhase
         # - if we see there's already an exclusive lock on that RID, we abort
         # - otherwise, increment number of shared locks
-        self.latch = Semaphore()
+        self.latch = threading.Lock()
         self.KeytoLocks = {}
         self.transactionID = -1  # number of transactions holding a lock
 
@@ -124,7 +124,7 @@ class LockManager():
     def obtainSLock(self, Key, transactionID):
         giveLock = False
         if Key not in self.KeytoLocks:
-            self.KeytoLocks[Key] = Lock()
+            self.KeytoLocks[Key] = RecordLock()
             self.KeytoLocks[Key].sLocks += 1
             self.KeytoLocks[Key].inUseBy.append(transactionID)
             # already has lock
@@ -154,7 +154,7 @@ class LockManager():
         giveLock = False
 
         if Key not in self.KeytoLocks:
-            self.KeytoLocks[Key] = Lock()
+            self.KeytoLocks[Key] = RecordLock()
             self.KeytoLocks[Key].xLocks = 1
             self.KeytoLocks[Key].inUseBy.append(transactionID)
             return True
@@ -171,8 +171,8 @@ class LockManager():
                 self.KeytoLocks[Key].inUseBy.append(transactionID)
                 giveLock = True
             # and there is an s Lock, then check what's using lock
-            elif self.KeyToLocks[Key].sLocks == 1:
-                if transactionID in self.KeyToLocks[Key].inUseBy:
+            elif self.KeytoLocks[Key].sLocks == 1:
+                if transactionID in self.KeytoLocks[Key].inUseBy:
                     self.KeytoLocks[Key].xLocks = 1
                     self.KeytoLocks[Key].inUseBy.append(transactionID)
                     giveLock = True
@@ -190,11 +190,14 @@ class LockManager():
         removeLock = False
 
         if Key not in self.KeytoLocks:
-            print("Key ", Key, " doesn't have S Lock")
+            #print("Key ", Key, " doesn't have S Lock")
             return True
         if (self.KeytoLocks[Key].sLocks > 0):
             self.KeytoLocks[Key].isShrinking = True
-            self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            if transactionID in self.KeytoLocks[Key].inUseBy:
+                self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            else:
+                print("transaction ID not present in S unlock")
             self.KeytoLocks[Key].sLocks = self.KeytoLocks[Key].sLocks - 1
             if (self.KeytoLocks[Key].sLocks == 0):
                 self.KeytoLocks[Key].isShrinking = False
@@ -209,7 +212,10 @@ class LockManager():
         removeLock = False
 
         if (self.KeytoLocks[Key].xLocks == 1):
-            self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            if transactionID in self.KeytoLocks[Key].inUseBy:
+                self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            else:
+                print("transaction ID not present in X unlock")
             # print("removed ", transactionID)
             self.KeytoLocks[Key].xLocks = 0
             removeLock = True

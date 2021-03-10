@@ -59,13 +59,17 @@ class Transaction:
         return self.commit()
 
     def abort(self):
+        LM.latch.acquire()
         self.rollbackChanges()
         self.releaseLocks()
+        LM.latch.release()
         return False
 
     def commit(self):
+        LM.latch.acquire()
         self.commitUpdatedRecords()
         self.releaseLocks()
+        LM.latch.release()
         return True
 
     # TODO: get tail record from tailRID, then get base record, then check if base indirection is less than tailRID and update if so

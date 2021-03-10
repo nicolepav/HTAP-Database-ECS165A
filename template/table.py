@@ -48,12 +48,10 @@ class Table:
         self.keyToRID = keyToRID
         self.index = Index(self)
         #lock manager per table
-        self.lockManager = LockManager()
         self.numMerges = numMerges
         # new tailRID array, each element holds the tailRID of each Page Range.
         self.tailRIDs = tailRIDs
         # used for latching Page Dir
-        self.latch = Semaphore()
 
     # Calls insert on the correct page range
     # 1. Check if page is already in bufferpool (getBasePagePath(self, baseRID) compared to BP.pages dictionary {page_path: page_object})
@@ -67,8 +65,8 @@ class Table:
         # So for now, we'll just latch the whole insert
 
         # PD latch (will use this instead of BP latching because it will latch more)
-        self.latch.acquire()
-        print("inserting: ", record)
+        BP.latch.acquire()
+        #print("inserting: ", record)
         self.baseRID += 1
         currentBaseRID = self.baseRID
         key = record[0]
@@ -76,7 +74,6 @@ class Table:
         selectedPageRange = self.getPageRange(self.baseRID)
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         BasePagePath = self.getBasePagePath(self.baseRID)
-
         BPindex = BP.pathInBP(BasePagePath)
         # Page not in bufferpool
         if BPindex is None:
@@ -84,6 +81,7 @@ class Table:
             page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
             # Create folder if needed
             if os.path.exists(BasePagePath):
+                print("File exists, reading from: ", BasePagePath)
                 page.readPageFromDisk(BasePagePath)
             # add to bufferpool
             BPindex = BP.add(page)
@@ -93,7 +91,7 @@ class Table:
         BP.bufferpool[BPindex].insert(self.baseRID, record)
         self.finishedModifyingRecord(BPindex)
         # PD unlatch
-        self.latch.release()
+        BP.latch.release()
         if self.index:
             self.index.latch.acquire()
             self.indexInsert(record)
