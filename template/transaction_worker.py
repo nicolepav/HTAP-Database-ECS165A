@@ -28,7 +28,6 @@ class TransactionWorker:
             x = threading.Thread(target=self.run_thread, args=())
             threads.append(x)
             x.start()
-            x.join()
         else:
             self.run_thread()
 
