@@ -182,10 +182,10 @@ class BasePage(Page):
         MetaJsonPath = path + "/Page_Meta.json"
         fullPath = os.path.join(MetaJsonPath)
         f = open(fullPath, "r")
-        print("printing file")
-        f.seek(0)
-        for line in f:
-            print("line: ", line)
+        # print("printing file")
+        # f.seek(0)
+        # for line in f:
+        #     print("line: ", line)
         f.seek(0)
         metaDictionary = json.load(f)
         f.close()
