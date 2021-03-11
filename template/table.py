@@ -30,13 +30,6 @@ class Table:
     :variable baseRID           #The current RID used to store a new base record
     :variable tailRIDs          #The current RID used for updating a base record, used for tail record
     """
-    # Latching Cases
-    # 1. Shared data structure is being accessed in some way
-    #   a. Update to data structure: latch
-    #   b. Reading from shared data structure: latch
-    #   c. Looping through values
-
-    # index, (keyToRID, baseRID, tailRIDs), bufferpool, numMerges???
 
     def __init__(self, name, num_columns, key, path = "./", baseRID = -1, tailRIDs = [], keyToRID = {}, numMerges = 0):
         self.name = name
@@ -60,16 +53,10 @@ class Table:
     # 2. Handle IsPageFull Logic: Check meta file or recreate base page and have it manually check to determine if full
     # 3. Then call recreatedPage.insert(RID, recordData)
     def insert(self, record):
-        # PROBLEM: if insert is called by two different threads, and the later thread inserts first, 
-        # then it will append the data in the wrong location unless we latch the entire function
-        # So for now, we'll just latch the whole insert
-
-        # PD latch (will use this instead of BP latching because it will latch more)
         BP.latch.acquire()
-        #print("inserting: ", record)
+        key = record[0]
         self.baseRID += 1
         currentBaseRID = self.baseRID
-        key = record[0]
         self.keyToRID[key] = self.baseRID
         selectedPageRange = self.getPageRange(self.baseRID)
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
@@ -81,7 +68,6 @@ class Table:
             page = BasePage(self.num_columns, selectedPageRange, BasePagePath)
             # Create folder if needed
             if os.path.exists(BasePagePath):
-                print("File exists, reading from: ", BasePagePath)
                 page.readPageFromDisk(BasePagePath)
             # add to bufferpool
             BPindex = BP.add(page)
@@ -96,12 +82,13 @@ class Table:
             self.index.latch.acquire()
             self.indexInsert(record)
             self.index.latch.release()
-        return [self, key]
+        return [self, currentBaseRID, key]
 
     # m1_tester expects a list of record objects, but we should only be passing back certain columns
     def select(self, key, column, query_columns):
+        BP.latch.acquire()
         if key not in self.keyToRID:
-            print("No RID found for this key")
+            BP.latch.release()
             return False
 
         baseRID = self.keyToRID[key]
@@ -109,15 +96,11 @@ class Table:
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         BasePagePath = self.getBasePagePath(baseRID)
         basePageOffset = self.calculatePageOffset(baseRID)
-
-        # BP latch
-        BP.latch.acquire()
         BPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         baseRecord = BP.bufferpool[BPindex].getRecord(basePageOffset)
 
         if baseRecord[RID_COLUMN] == INVALID:
             BP.bufferpool[BPindex].pinned -=1
-            # BP unlatch
             BP.latch.release()
             return False
 
@@ -133,16 +116,15 @@ class Table:
     # 3. Add tail page to BP if needed and insert the cumulative tail record into latest tail page
     # 4/5. Check if a merge should occur and udpate index
     def update(self, key, record, isTransaction = False):
+        BP.latch.acquire()
         if key not in self.keyToRID:
-            print("No RID found for this key")
+            BP.latch.release()
             return False
         # 1.
         baseRID = self.keyToRID[key]
         selectedPageRange = self.getPageRange(baseRID)
         PageRangePath = self.path + "/pageRange_" + str(selectedPageRange)
         BasePagePath = self.getBasePagePath(baseRID)
-        # BP latch
-        BP.latch.acquire()
         baseBPindex = self.getBasePageBPIndex(BasePagePath, selectedPageRange)
         basePageOffset = self.calculatePageOffset(baseRID)
         baseRecord = BP.bufferpool[baseBPindex].getRecord(basePageOffset)
@@ -171,13 +153,11 @@ class Table:
         tailBPindex = self.getTailPageBufferIndex(selectedPageRange, TailPagePath)
         BP.bufferpool[tailBPindex].insert(cumulativeRecord)
         self.finishedModifyingRecord(tailBPindex)
-        # TODO should do BP unlatch here but need to think through merging more
         # 4.
         if self.numMerges == 0 and self.calculateTailPageIndex(tailRID) >= MergePolicy:
             self.initiateMerge(selectedPageRange)
         elif self.numMerges > 0 and self.calculateTailPageIndex(tailRID) >= self.numMerges * MergePolicy + MergePolicy:
             self.initiateMerge(selectedPageRange)
-        # TODO will put BP unlatch here temporarily but need to think through merging more
         BP.latch.release()
         # 5.
         if self.index:
@@ -185,6 +165,19 @@ class Table:
             self.indexUpdate(cumulativeRecord)
             self.index.latch.release()
         return [self, tailRID, selectedPageRange, baseRID]
+
+    def deleteBaseRecord(self, baseRID):
+        pageOffset = self.calculatePageOffset(baseRID)
+        BasePagePath = self.getBasePagePath(baseRID)
+        baseBPindex = BP.pathInBP(BasePagePath)
+        if baseBPindex is None:
+            page = BasePage(self.num_columns, 0, BasePagePath)
+            page.readPageFromDisk(BasePagePath)
+            baseBPindex = BP.add(page)
+        else:
+            baseBPindex = BP.refresh(baseBPindex)
+        BP.bufferpool[baseBPindex].invalidateRecord(pageOffset)
+        self.finishedModifyingRecord(baseBPindex)
 
     def deleteTailRecord(self, tailRID, selectedPageRange):
         pageOffset = self.calculatePageOffset(tailRID)
@@ -277,7 +270,6 @@ class Table:
 
     def delete(self, key):
         if key not in self.keyToRID:
-            print("No RID found for this key")
             return False
         baseRID = self.keyToRID[key]
         selectedPageRange = self.getPageRange(baseRID)

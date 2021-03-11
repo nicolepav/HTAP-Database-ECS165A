@@ -76,7 +76,6 @@ class Page:
         return MetaElements
 
     def writePageToDisk(self, path):
-        print("Writing page to disk: ", path)
         if self.consolidated:
             self.writeMetaToDisk(path)
             return
@@ -182,10 +181,6 @@ class BasePage(Page):
         MetaJsonPath = path + "/Page_Meta.json"
         fullPath = os.path.join(MetaJsonPath)
         f = open(fullPath, "r")
-        # print("printing file")
-        # f.seek(0)
-        # for line in f:
-        #     print("line: ", line)
         f.seek(0)
         metaDictionary = json.load(f)
         f.close()

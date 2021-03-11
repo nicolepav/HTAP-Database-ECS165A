@@ -27,15 +27,10 @@ INVALID = 72057594037927935 #(max int for 7 byes, Hexadecimal: 0xFFFFFFFFFFFFFF)
 threads = []
 
 # global must be defined after class definition (its just under it)
-# TODO: to begin with, let's lock at start of every function then unlock at end
 class Bufferpool():
     def __init__(self):
         self.bufferpool = [None]*BufferpoolSize
         self.latch = threading.Lock()
-        # BP.latch.acquire()
-        # BP.latch.release()
-        # OR
-        # with BP.latch:
         pass
 
     def BufferpoolIsFull(self):
@@ -190,38 +185,28 @@ class LockManager():
         removeLock = False
 
         if Key not in self.KeytoLocks:
-            #print("Key ", Key, " doesn't have S Lock")
             return True
         if (self.KeytoLocks[Key].sLocks > 0):
             self.KeytoLocks[Key].isShrinking = True
             if transactionID in self.KeytoLocks[Key].inUseBy:
                 self.KeytoLocks[Key].inUseBy.remove(transactionID)
-            else:
-                print("transaction ID not present in S unlock")
             self.KeytoLocks[Key].sLocks = self.KeytoLocks[Key].sLocks - 1
             if (self.KeytoLocks[Key].sLocks == 0):
                 self.KeytoLocks[Key].isShrinking = False
             removeLock = True
-            # del self.KeytoLocks[Key]
-        # if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
-        #     raise Exception("Lock Error: There were no S Locks to remove.")
         return removeLock
 
 
     def giveUpXLock(self, Key, transactionID):
         removeLock = False
-
+        if Key not in self.KeytoLocks:
+            return True
         if (self.KeytoLocks[Key].xLocks == 1):
             if transactionID in self.KeytoLocks[Key].inUseBy:
                 self.KeytoLocks[Key].inUseBy.remove(transactionID)
-            else:
-                print("transaction ID not present in X unlock")
-            # print("removed ", transactionID)
             self.KeytoLocks[Key].xLocks = 0
             removeLock = True
 
-        # if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
-        #     raise Exception("Lock Error: There were no X Locks to remove.")
         return removeLock
 
 
