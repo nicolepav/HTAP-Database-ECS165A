@@ -29,7 +29,7 @@ class Transaction:
         for query, args in self.queries:
             if query.__name__ == "insert":
                 LM.latch.acquire()
-                hasLock = LM.obtainXLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
+                hasLock = LM.obtainXLock(args[0], self.ID)
                 LM.latch.release()
                 if not hasLock:
                     result = False
@@ -41,7 +41,7 @@ class Transaction:
                         LM.latch.release()
             elif query.__name__ == "update":
                 LM.latch.acquire()
-                hasLock = LM.obtainXLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
+                hasLock = LM.obtainXLock(args[0], self.ID)
                 LM.latch.release()
                 if not hasLock:
                     result = False
@@ -53,7 +53,7 @@ class Transaction:
                         LM.latch.release()
             elif query.__name__ == "select":
                 LM.latch.acquire()
-                hasLock = LM.obtainSLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
+                hasLock = LM.obtainSLock(args[0], self.ID)
                 LM.latch.release()
                 if not hasLock:
                     result = False
@@ -106,8 +106,8 @@ class Transaction:
     def releaseLocks(self):
         for query, args in self.queries:
             if query.__name__ == "insert":
-                LM.giveUpXLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
+                LM.giveUpXLock(args[0], self.ID)
             elif query.__name__ == "update":
-                LM.giveUpXLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
+                LM.giveUpXLock(args[0], self.ID)
             elif query.__name__ == "select":
-                LM.giveUpSLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
+                LM.giveUpSLock(args[0], self.ID)
