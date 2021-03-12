@@ -18,6 +18,8 @@ class Database():
         self.path = path
 
     def close(self):
+        for thread in threads:
+            thread.join()
         if not os.path.exists(self.path):
             raise Exception("Close Error: there is no file at this path.")
 
@@ -27,8 +29,6 @@ class Database():
             if not os.path.exists(tableDirPath):
                 os.mkdir(tableDirPath)
             table.close(tableDirPath)
-        for thread in threads:
-            thread.join()
 
     """
     # Creates a new table

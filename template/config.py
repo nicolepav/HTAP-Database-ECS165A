@@ -1,5 +1,5 @@
 import os
-from threading import Semaphore
+import threading
 # Global Setting for the Database
 # PageSize, StartRID, etc..
 
@@ -27,15 +27,10 @@ INVALID = 72057594037927935 #(max int for 7 byes, Hexadecimal: 0xFFFFFFFFFFFFFF)
 threads = []
 
 # global must be defined after class definition (its just under it)
-# TODO: to begin with, let's lock at start of every function then unlock at end
 class Bufferpool():
     def __init__(self):
         self.bufferpool = [None]*BufferpoolSize
-        self.latch = Semaphore()
-        # BP.latch.acquire()
-        # BP.latch.release()
-        # OR
-        # with BP.latch:
+        self.latch = threading.Lock()
         pass
 
     def BufferpoolIsFull(self):
@@ -97,7 +92,7 @@ global BP
 BP = Bufferpool()
 
 # whole record locked from base record
-class Lock:
+class RecordLock():
     def __init__(self):
         self.sLocks = 0
         self.xLocks =  0
@@ -110,7 +105,7 @@ class LockManager():
         # hash table mapping RIDs to list of S lock, X lock, bool isShrinkingPhase
         # - if we see there's already an exclusive lock on that RID, we abort
         # - otherwise, increment number of shared locks
-        self.latch = Semaphore()
+        self.latch = threading.Lock()
         self.KeytoLocks = {}
         self.transactionID = -1  # number of transactions holding a lock
 
@@ -124,7 +119,7 @@ class LockManager():
     def obtainSLock(self, Key, transactionID):
         giveLock = False
         if Key not in self.KeytoLocks:
-            self.KeytoLocks[Key] = Lock()
+            self.KeytoLocks[Key] = RecordLock()
             self.KeytoLocks[Key].sLocks += 1
             self.KeytoLocks[Key].inUseBy.append(transactionID)
             # already has lock
@@ -154,7 +149,7 @@ class LockManager():
         giveLock = False
 
         if Key not in self.KeytoLocks:
-            self.KeytoLocks[Key] = Lock()
+            self.KeytoLocks[Key] = RecordLock()
             self.KeytoLocks[Key].xLocks = 1
             self.KeytoLocks[Key].inUseBy.append(transactionID)
             return True
@@ -171,8 +166,8 @@ class LockManager():
                 self.KeytoLocks[Key].inUseBy.append(transactionID)
                 giveLock = True
             # and there is an s Lock, then check what's using lock
-            elif self.KeyToLocks[Key].sLocks == 1:
-                if transactionID in self.KeyToLocks[Key].inUseBy:
+            elif self.KeytoLocks[Key].sLocks == 1:
+                if transactionID in self.KeytoLocks[Key].inUseBy:
                     self.KeytoLocks[Key].xLocks = 1
                     self.KeytoLocks[Key].inUseBy.append(transactionID)
                     giveLock = True
@@ -190,32 +185,28 @@ class LockManager():
         removeLock = False
 
         if Key not in self.KeytoLocks:
-            print("Key ", Key, " doesn't have S Lock")
             return True
         if (self.KeytoLocks[Key].sLocks > 0):
             self.KeytoLocks[Key].isShrinking = True
-            self.KeytoLocks[Key].inUseBy.remove(transactionID)
+            if transactionID in self.KeytoLocks[Key].inUseBy:
+                self.KeytoLocks[Key].inUseBy.remove(transactionID)
             self.KeytoLocks[Key].sLocks = self.KeytoLocks[Key].sLocks - 1
             if (self.KeytoLocks[Key].sLocks == 0):
                 self.KeytoLocks[Key].isShrinking = False
             removeLock = True
-            # del self.KeytoLocks[Key]
-        # if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
-        #     raise Exception("Lock Error: There were no S Locks to remove.")
         return removeLock
 
 
     def giveUpXLock(self, Key, transactionID):
         removeLock = False
-
+        if Key not in self.KeytoLocks:
+            return True
         if (self.KeytoLocks[Key].xLocks == 1):
-            self.KeytoLocks[Key].inUseBy.remove(transactionID)
-            # print("removed ", transactionID)
+            if transactionID in self.KeytoLocks[Key].inUseBy:
+                self.KeytoLocks[Key].inUseBy.remove(transactionID)
             self.KeytoLocks[Key].xLocks = 0
             removeLock = True
 
-        # if not removeLock: #TODO: should only be needed for debugging (if exception is raised, there are issues)
-        #     raise Exception("Lock Error: There were no X Locks to remove.")
         return removeLock
 
 

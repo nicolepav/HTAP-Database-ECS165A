@@ -9,7 +9,6 @@ INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
 SCHEMA_ENCODING_COLUMN = 3
-# TODO: to begin with, let's lock at start of every function then unlock at end
 class Index:
 
     def __init__(self, table):
@@ -22,7 +21,6 @@ class Index:
     """
     # returns the location of all records with the given value on column "column"
     """
-    #TODO Finish this
     def locate(self, column, value):
         returningRIDs = []
         allRecords = self.indices[column-1].find(value , column)
@@ -48,9 +46,7 @@ class Index:
     #record data = array of pageranges
     #column_number assumes the user passes the number of the table column from their view
     def create_index(self, column_number):
-        # print("index created on ", column_number)
         self.indices[column_number-1] = BTree()
-        # print(self.table.getAllUpdatedRecords())
         allRecords = self.table.getAllUpdatedRecords()
         for record in allRecords:
             insertedRecord = [record[4],record[5],record[6],record[7], record[RID_COLUMN]]
@@ -70,7 +66,6 @@ returningData = []
 
 class BNode:
     def __init__(self, data, par=None):
-        #print ("Node __init__: " + str(data))
         self.data = list([data])
         self.parent = par
         self.child = list()
@@ -89,7 +84,6 @@ class BNode:
 
     # merge new_node sub-tree into self node
     def _add(self, new_node):
-        # print ("Node _add: " + str(new_node.data) + ' to ' + str(self.data))
         for child in new_node.child:
             child.parent = self
         self.data.extend(new_node.data)
@@ -102,8 +96,6 @@ class BNode:
 
     # find correct node to insert new node into tree
     def _insert(self, new_node, keyColumn):
-        # print ('Node _insert: ' + str(new_node.data) + ' into ' + str(self.data))
-
         # leaf node - add data to leaf and rebalance tree
         if self._isLeaf():
             self._add(new_node)
@@ -119,7 +111,6 @@ class BNode:
 
     # 3 items in node, split into new sub-tree and add to parent
     def _split(self):
-        # print("Node _split: " + str(self.data))
         left_child = BNode(self.data[0], self)
         right_child = BNode(self.data[2], self)
         if self.child:
@@ -145,7 +136,6 @@ class BNode:
 
     # find all item in the tree; USED FOR SELECT(key) 
     def _find(self, key, keyColumn):
-        # print ("Find " + str(item))
         for record in self.data:
             if record[keyColumn] == key:
                 returningData.append(record)
@@ -156,7 +146,6 @@ class BNode:
         return returningData
 
     def _findRange(self, begin, end, keyColumn):
-        # print ("Find " + str(item))
         for record in self.data:
             if record[keyColumn] >= begin and record[keyColumn] <= end:
                 returningData.append(record)
@@ -178,20 +167,16 @@ class BNode:
     def _remove(self, item):
         pass
 
-    # print preorder traversal
     def _preorder(self):
-        print(self)
         for child in self.child:
             child._preorder()
 
 
 class BTree:
     def __init__(self):
-        # print("Tree __init__")
         self.root = None
 
     def insert(self, record, keyColumn):
-        # print("Tree insert: " + str(record[keyColumn-1]))
         if self.root is None:
             self.root = BNode(record)
         else:
@@ -213,15 +198,8 @@ class BTree:
     def remove(self, record):
         self.root.remove(record)
 
-    def printTop2Tiers(self):
-        print('----Top 2 Tiers----')
-        print(str(self.root.data))
-        for child in self.root.child:
-            print(str(child.data), end=' ')
-        print(' ')
 
     def preorder(self):
-        print('----Preorder----')
         self.root._preorder()
 
     def findAndChange(self, record, RID):

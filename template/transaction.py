@@ -23,32 +23,37 @@ class Transaction:
     def add_query(self, query, *args):
         self.queries.append((query, args))
 
-    # If you choose to implement this differently this method must still return True if transaction commits or False on abort
     def run(self):
         if self.ID == -1:
                 self.ID = LM.getTransactionID()
         for query, args in self.queries:
             if query.__name__ == "insert":
                 LM.latch.acquire()
-                hasLock = LM.obtainXLock(args[0], self.ID)
+                hasLock = LM.obtainXLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
                 LM.latch.release()
                 if not hasLock:
                     result = False
                 else:
                     result = query(*args)
-                    self.insertedBaseData.append(result)
+                    if result != False:
+                        LM.latch.acquire()
+                        self.insertedBaseData.append(result)
+                        LM.latch.release()
             elif query.__name__ == "update":
                 LM.latch.acquire()
-                hasLock = LM.obtainXLock(args[0], self.ID)
+                hasLock = LM.obtainXLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
                 LM.latch.release()
                 if not hasLock:
                     result = False
                 else:
                     result = query(*args)
-                    self.insertedTailData.append(result)
+                    if result != False:
+                        LM.latch.acquire()
+                        self.insertedTailData.append(result)
+                        LM.latch.release()
             elif query.__name__ == "select":
                 LM.latch.acquire()
-                hasLock = LM.obtainSLock(args[0], self.ID)
+                hasLock = LM.obtainSLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
                 LM.latch.release()
                 if not hasLock:
                     result = False
@@ -59,16 +64,20 @@ class Transaction:
         return self.commit()
 
     def abort(self):
+        LM.latch.acquire()
         self.rollbackChanges()
         self.releaseLocks()
+        LM.latch.release()
         return False
 
     def commit(self):
+        LM.latch.acquire()
         self.commitUpdatedRecords()
         self.releaseLocks()
+        LM.latch.release()
         return True
 
-    # TODO: get tail record from tailRID, then get base record, then check if base indirection is less than tailRID and update if so
+    # make base page point to committed tail record and map key to committed base record
     def commitUpdatedRecords(self):
         for data in self.insertedTailData:
             table = data[0]
@@ -76,8 +85,12 @@ class Transaction:
             selectedPageRange = data[2]
             baseRID = data[3]
             table.updateBaseIndirection(baseRID, tailRID)
+        for data in self.insertedBaseData:
+            table = data[0]
+            baseRID = data[1]
+            key = data[2]
+            table.keyToRID[key] = baseRID
 
-    #TODO: iterate through any insertedBase or tail RIDs and delete
     def rollbackChanges(self):
         for data in self.insertedTailData:
             table = data[0]
@@ -87,14 +100,14 @@ class Transaction:
             table.deleteTailRecord(tailRID, selectedPageRange)
         for data in self.insertedBaseData:
             table = data[0]
-            key = data[1]
-            table.delete(key)
+            baseRID = data[1]
+            table.deleteBaseRecord(baseRID)
 
     def releaseLocks(self):
         for query, args in self.queries:
             if query.__name__ == "insert":
-                LM.giveUpXLock(args[0], self.ID)
+                LM.giveUpXLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
             elif query.__name__ == "update":
-                LM.giveUpXLock(args[0], self.ID)
+                LM.giveUpXLock(query.__self__.table.name + '_' + str(args[0]), self.ID)
             elif query.__name__ == "select":
-                LM.giveUpSLock(args[0], self.ID)
+                LM.giveUpSLock(query.__self__.table.name + '_' + str(args[0]), self.ID)

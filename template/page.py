@@ -166,7 +166,8 @@ class BasePage(Page):
     def writePageMeta(self, path):
         #base page, so store page meta (numrecords and TPS)
         MetaJsonPath = path + "/Page_Meta.json"
-        f = open(MetaJsonPath, "w")
+        fullPath = os.path.join(MetaJsonPath)
+        f = open(fullPath, "w")
         metaDictionary = {
             "num_records": self.num_records,
             "num_columns": len(self.dataColumns),
@@ -178,7 +179,9 @@ class BasePage(Page):
     def readPageMeta(self, path):
         #base page, so get page meta (numrecords and TPS)
         MetaJsonPath = path + "/Page_Meta.json"
-        f = open(MetaJsonPath, "r")
+        fullPath = os.path.join(MetaJsonPath)
+        f = open(fullPath, "r")
+        f.seek(0)
         metaDictionary = json.load(f)
         f.close()
         self.num_records = metaDictionary["num_records"]

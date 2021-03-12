@@ -11,6 +11,7 @@ class TransactionWorker:
         self.stats = []
         self.transactions = transactions
         self.result = 0
+        self.thread = 0
         pass
 
     """
@@ -23,11 +24,11 @@ class TransactionWorker:
     Runs a transaction
     """
     def run(self):
-        # x = threading.Thread(target=self.run_thread, args=())
-        # threads.append(x)
-        # x.start()
-        self.run_thread()
-
+        x = threading.Thread(target=self.run_thread, args=())
+        self.thread = x
+        threads.append(x)
+        x.start()
+        #self.run_thread()
 
     def run_thread(self):
         for transaction in self.transactions:
@@ -35,3 +36,6 @@ class TransactionWorker:
             self.stats.append(transaction.run())
         # stores the number of transactions that committed
         self.result = len(list(filter(lambda x: x, self.stats)))
+
+    def join(self):
+        self.thread.join()
