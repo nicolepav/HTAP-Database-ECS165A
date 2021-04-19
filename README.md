@@ -2,16 +2,11 @@
 
 **Team Members:**
 
-Nick Abcarius
-
-Andrew Do
-
-Travis Garcia
-
-Nicole Pavlovich
-
-Steven Tan
-
+- Nick Abcarius
+- Andrew Do
+- Travis Garcia
+- Nicole Pavlovich
+- Steven Tan
 
 
 **About this project:**
